@@ -40,7 +40,7 @@
     </div>
     <div v-if="invalid" role="alert" class="mt-2 text-xs">{{ t('invalid') }}</div>
     <div class="mt-3 flex flex-wrap gap-2"><slot /></div>
-    <div class="mt-4 grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1">
+    <div class="mt-4 grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1">
       <span class="text-xs opacity-60">{{ formatGameTime(timestamp) }}</span>
       <div ref="track" class="relative min-w-0" @pointermove="preview" @pointerleave="hover = null">
         <span v-if="hover !== null" class="preview" :style="{ left: `${percent(hover)}%` }">{{
@@ -65,7 +65,14 @@
         <span v-for="tick in ticks" :key="tick">{{ formatGameTime(tick) }}</span>
       </div>
       <template v-for="lane in lanes" :key="lane.kind">
-        <span class="text-xs">{{ tm(lane.kind) }}</span>
+        <span class="flex items-center gap-1 text-xs"
+          ><NIcon
+            :component="eventIcons[lane.kind]"
+            :class="eventColors[lane.kind]"
+            :size="16"
+            aria-hidden="true"
+          />{{ tm(lane.kind) }}</span
+        >
         <div class="lane relative h-9 min-w-0 rounded">
           <span class="cursor" :style="{ left: `${percent(timestamp)}%` }" />
           <NPopover
@@ -94,8 +101,16 @@
                 "
                 :title="group.events.length === 1 ? label(group.events[0]) : undefined"
                 @click="group.events.length === 1 && emit('select', group.events[0])"
-                >{{ symbols[lane.kind]
-                }}<span v-if="group.events.length > 1"> {{ group.events.length }}</span></NButton
+                ><NIcon
+                  :component="eventIcons[lane.kind]"
+                  :class="
+                    group.events.some((e) => e.id === selectedId)
+                      ? undefined
+                      : eventColors[lane.kind]
+                  "
+                  :size="16"
+                  aria-hidden="true"
+                /><span v-if="group.events.length > 1"> {{ group.events.length }}</span></NButton
               >
             </template>
             <div class="flex flex-col gap-2">
@@ -122,9 +137,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useElementSize } from '@vueuse/core'
-import { NButton, NCard, NInput, NEmpty, NPopover } from 'naive-ui'
+import { NButton, NCard, NInput, NEmpty, NPopover, NIcon } from 'naive-ui'
 import { useTranslation } from 'i18next-vue'
 import { formatGameTime, type ReviewEvent } from '@shared/pro/review'
+import { eventIcons, eventColors } from '../event-map/icons'
 import { eventKind, eventKinds } from '../event-map/points'
 import { adjacentEvent, groupEvents, parseTime, timelineRange } from './navigation'
 const props = defineProps<{
@@ -149,7 +165,6 @@ const sorted = computed(() => [...props.events].sort((a, b) => a.timestamp - b.t
 const previous = computed(() => adjacentEvent(sorted.value, props.timestamp, props.selectedId, -1))
 const next = computed(() => adjacentEvent(sorted.value, props.timestamp, props.selectedId, 1))
 const selected = computed(() => props.events.find((e) => e.id === props.selectedId))
-const symbols = { deaths: '×', kills: '⚔', objectives: '◆', buildings: '■' }
 const lanes = computed(() =>
   eventKinds
     .filter((kind) => kind !== 'all')

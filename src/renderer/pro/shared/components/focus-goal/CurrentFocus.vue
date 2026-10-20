@@ -1,11 +1,17 @@
 <template>
-  <NCard
-    v-if="focus && player && (!championId || focus.championId === championId)"
-    size="small"
-    :title="t('title')"
-  >
+  <NCard v-if="focus && player && (!championId || focus.championId === championId)" size="small">
+    <template #header
+      ><span class="flex items-center gap-2"
+        ><NIcon :component="Target" :size="20" />{{ t('title') }}</span
+      ></template
+    >
     <div class="flex flex-col gap-2">
-      <span class="break-words whitespace-pre-wrap">{{ focus.text }}</span>
+      <div class="flex items-start gap-3">
+        <ChampionIcon :champion-id="focus.championId" class="size-11! shrink-0 rounded-lg" /><span
+          class="min-w-0 text-sm break-words whitespace-pre-wrap"
+          >{{ focus.text }}</span
+        >
+      </div>
       <div class="flex flex-wrap gap-3">
         <NButton text size="tiny" @click="locate">{{ t('evidence') }}</NButton>
         <NButton size="tiny" :loading="saving" @click="finish">{{ t('complete') }}</NButton>
@@ -17,7 +23,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { NCard, NButton, NAlert } from 'naive-ui'
+import { NCard, NButton, NAlert, NIcon } from 'naive-ui'
+import { Target } from '@vicons/tabler'
+import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
 import { useTranslation } from 'i18next-vue'
 import { useInstance } from '@renderer-shared/shards'
 import { useLeagueClientStore } from '@renderer-shared/shards/league-client/store'

@@ -1,5 +1,10 @@
 <template>
-  <NCard size="small" :title="t('title')">
+  <NCard size="small">
+    <template #header
+      ><span class="flex items-center gap-2"
+        ><NIcon :component="Target" :size="20" />{{ t('title') }}</span
+      ></template
+    >
     <template #header-extra
       ><NButton size="tiny" :loading="loading" @click="load">{{ t('reload') }}</NButton></template
     >
@@ -8,13 +13,14 @@
       <div
         v-for="item in result?.items"
         :key="JSON.stringify(item.player)"
-        class="flex flex-col gap-2"
+        class="flex flex-col gap-3 rounded-lg border border-(--la-color-popover-border) p-3"
       >
         <template v-if="item.plan.focus">
           <div class="flex items-center gap-2">
-            <ChampionIcon :champion-id="item.plan.focus.championId" class="size-7!" /><span
-              class="text-xs opacity-60"
-              >{{ item.player.serverId }}</span
+            <ChampionIcon
+              :champion-id="item.plan.focus.championId"
+              class="size-11! shrink-0 rounded-lg"
+            /><span class="text-xs opacity-60">{{ item.player.serverId }}</span
             ><span class="break-words">{{ item.plan.focus.text }}</span>
           </div>
           <div class="flex gap-3">
@@ -39,7 +45,8 @@
 <script setup lang="ts">
 import { ref, shallowRef, watch, onMounted, onScopeDispose } from 'vue'
 import { useRouter } from 'vue-router'
-import { NCard, NButton, NAlert, NEmpty, NPagination } from 'naive-ui'
+import { NCard, NButton, NAlert, NEmpty, NPagination, NIcon } from 'naive-ui'
+import { Target } from '@vicons/tabler'
 import { useTranslation } from 'i18next-vue'
 import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
 import { useInstance } from '@renderer-shared/shards'

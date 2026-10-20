@@ -72,14 +72,14 @@
                 @click="locateEvent(event)"
                 >{{ formatGameTime(event.timestamp) }}</NButton
               >
-              <span>{{ describe(event) }}</span
-              ><NTag v-if="junglerInvolved(event)" size="small" type="warning">{{
+              <EventSummary
+                :event="event"
+                :participants="report.analysis.participants"
+                :describe="describe"
+              />
+              <NTag v-if="junglerInvolved(event)" size="small" type="warning">{{
                 tw('enemyJungler')
               }}</NTag>
-              <span v-if="event.position" class="opacity-60"
-                >({{ event.position.x }}, {{ event.position.y }})</span
-              >
-              <span class="opacity-60">{{ t('evidence') }} {{ event.id }}</span>
             </div>
             <NEmpty v-if="!visibleEvents.length" :description="t('noEvents')" />
           </div>
@@ -105,7 +105,21 @@
           :key="group"
           class="mb-2 flex flex-wrap items-center gap-3"
         >
-          <span>{{ td(group, { count: duels[group].length }) }}</span>
+          <div class="flex items-center gap-2">
+            <NIcon
+              :component="group === 'kills' ? Bolt : X"
+              :size="24"
+              :class="
+                group === 'kills'
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-red-500 dark:text-red-400'
+              "
+              aria-hidden="true"
+            /><span class="text-2xl font-semibold tabular-nums">{{ duels[group].length }}</span
+            ><span class="text-xs opacity-70">{{
+              tv(group === 'kills' ? 'soloKills' : 'soloDeaths')
+            }}</span>
+          </div>
           <NButton
             v-for="event in duels[group]"
             :key="event.id"
@@ -113,7 +127,16 @@
             @click="locateEvent(event)"
           >
             {{ formatGameTime(event.timestamp) }} ·
-            {{ champion(group === 'kills' ? event.victimId : event.killerId) }}
+            <ChampionIcon
+              :champion-id="
+                report.analysis.participants.find(
+                  (p) => p.id === (group === 'kills' ? event.victimId : event.killerId)
+                )?.championId ?? -1
+              "
+              class="ml-1 size-6! rounded"
+              role="img"
+              :aria-label="champion(group === 'kills' ? event.victimId : event.killerId)"
+            />
           </NButton>
         </div>
         <span class="text-xs opacity-60">{{ td('definition') }}</span>
@@ -177,6 +200,7 @@ import {
 } from '@shared/pro/review'
 import { useTranslation } from 'i18next-vue'
 import {
+  NIcon,
   NTag,
   NAlert,
   NButton,
@@ -194,6 +218,9 @@ import {
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
+import EventSummary from './EventSummary.vue'
+import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
+import { Bolt, X } from '@vicons/tabler'
 import ReviewChart from './ReviewChart.vue'
 import EventMap from './event-map/EventMap.vue'
 import ReviewTimeline from './timeline/ReviewTimeline.vue'
@@ -211,6 +238,7 @@ const props = defineProps<{
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.review' })
 const { t: tw } = useTranslation(undefined, { keyPrefix: 'pro.workshop' })
 const { t: tm } = useTranslation(undefined, { keyPrefix: 'pro.eventMap' })
+const { t: tv } = useTranslation(undefined, { keyPrefix: 'pro.visual' })
 const { t: td } = useTranslation(undefined, { keyPrefix: 'pro.duels' })
 const duels = computed(() => personalDuels(props.report.analysis))
 const radius = ref<number | null>(60)

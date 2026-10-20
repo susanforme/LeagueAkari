@@ -5,7 +5,7 @@
         size="tiny"
         quaternary
         :type="status?.progress.reached && active ? 'warning' : 'default'"
-        >{{ t('title') }}</NButton
+        ><template #icon><NIcon :component="Clock" /></template>{{ t('title') }}</NButton
       ></template
     >
     <div class="flex w-80 flex-col gap-3">
@@ -13,22 +13,65 @@
       <template v-else-if="status">
         <CurrentFocus />
         <template v-if="status.plan.session">
-          <span>{{ t(active ? 'active' : 'ended') }}</span>
-          <span>{{
-            t('progress', {
-              games: status.progress.games,
-              planned: status.plan.session.games,
-              minutes: status.progress.minutes,
-              limit: status.plan.session.minutes
-            })
-          }}</span>
-          <span>{{
-            t('record', { wins: status.progress.wins, losses: status.progress.losses })
-          }}</span>
+          <NTag :type="active ? 'success' : 'default'" size="small" class="self-start">{{
+            t(active ? 'active' : 'ended')
+          }}</NTag>
+          <div class="grid grid-cols-2 gap-4 py-2">
+            <div
+              v-for="item in [
+                {
+                  icon: Flag,
+                  label: tv('games'),
+                  value: status.progress.games,
+                  limit: status.plan.session.games
+                },
+                {
+                  icon: Clock,
+                  label: tv('minutes'),
+                  value: status.progress.minutes,
+                  limit: status.plan.session.minutes
+                }
+              ]"
+              :key="item.label"
+              class="flex flex-col items-center gap-2"
+            >
+              <NProgress
+                type="circle"
+                class="w-28!"
+                :percentage="Math.min(100, (item.value / item.limit) * 100)"
+                :stroke-width="7"
+                :status="item.value >= item.limit ? 'success' : 'default'"
+                :aria-label="`${item.label}: ${item.value} / ${item.limit}`"
+              >
+                <div class="flex flex-col items-center">
+                  <NIcon :component="item.icon" :size="18" aria-hidden="true" /><span
+                    class="text-2xl font-semibold tabular-nums"
+                    >{{ item.value }}</span
+                  ><span class="text-xs opacity-60">/ {{ item.limit }}</span>
+                </div>
+              </NProgress>
+              <span class="text-xs opacity-70">{{ item.label }}</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-center gap-3">
+            <NIcon :component="Trophy" :size="18" aria-hidden="true" /><span
+              class="font-semibold tabular-nums"
+              >{{
+                t('record', { wins: status.progress.wins, losses: status.progress.losses })
+              }}</span
+            >
+          </div>
           <span v-if="status.progress.missingDurations" class="text-xs">{{
             t('missing', { count: status.progress.missingDurations })
           }}</span>
-          <NAlert v-if="remaining" type="info">{{ t('resting', { minutes: remaining }) }}</NAlert>
+          <div
+            v-if="remaining"
+            class="flex items-center gap-3 rounded-lg bg-(--la-card-muted-surface) p-3"
+          >
+            <NIcon :component="Coffee" :size="28" aria-hidden="true" /><span>{{
+              t('resting', { minutes: remaining })
+            }}</span>
+          </div>
           <NAlert v-else-if="active && status.progress.reached" type="warning">{{
             t('reached')
           }}</NAlert>
@@ -84,7 +127,8 @@
 </template>
 <script setup lang="ts">
 import { computed, ref, watch, onScopeDispose } from 'vue'
-import { NPopover, NButton, NAlert, NInputNumber } from 'naive-ui'
+import { NPopover, NButton, NAlert, NInputNumber, NIcon, NProgress, NTag } from 'naive-ui'
+import { Flag, Clock, Trophy, Coffee } from '@vicons/tabler'
 import { useTranslation } from 'i18next-vue'
 import { useInstance } from '@renderer-shared/shards'
 import { useLeagueClientStore } from '@renderer-shared/shards/league-client/store'
@@ -98,6 +142,7 @@ const store = useExperienceStore(),
   sgp = useSgpStore(),
   api = useInstance(ExperienceRenderer)
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.playPlan' })
+const { t: tv } = useTranslation(undefined, { keyPrefix: 'pro.visual' })
 const player = computed(() =>
   league.isConnected &&
   league.summoner.me?.puuid === store.status?.account?.puuid &&

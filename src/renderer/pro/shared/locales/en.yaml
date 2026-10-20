@@ -558,6 +558,22 @@ pro:
       win: Win
       loss: Loss
       unknown: Unknown result
+  visual:
+    losses: Consecutive losses
+    current: This match
+    median: Recent median
+    gold: gold
+    cs: CS
+    csPerMin: CS / min
+    deathsPer10: deaths / 10 min
+    withinMinute: Within 60s after
+    samples_one: '{{count}} sample'
+    samples_other: '{{count}} samples'
+    games: Games
+    minutes: Minutes played
+    soloKills: Solo kills
+    soloDeaths: Solo deaths
+    checkpoints: Laning checkpoints
   timeline:
     title: Event timeline
     previous: Previous event
@@ -607,7 +623,7 @@ pro:
     kills_other: '{{count}} solo kills'
     deaths_one: '{{count}} solo death'
     deaths_other: '{{count}} solo deaths'
-    definition: Enemy champion kills with an explicitly empty assist list; tower damage and nearby players may still be involved.
+    definition: No recorded assists; towers or nearby players may still affect the fight.
     unknown_one: '{{count}} related kill has unknown assists and was excluded'
     unknown_other: '{{count}} related kills have unknown assists and were excluded'
     unavailable: Timeline unavailable for this match

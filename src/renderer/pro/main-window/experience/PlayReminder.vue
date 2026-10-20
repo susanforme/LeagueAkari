@@ -4,8 +4,9 @@
   }}</NButton>
 </template>
 <script setup lang="ts">
-import { watch, onScopeDispose, ref } from 'vue'
+import { watch, onScopeDispose, ref, h } from 'vue'
 import { NButton, useNotification, type NotificationReactive } from 'naive-ui'
+import ReminderSummary from './ReminderSummary.vue'
 import { useTranslation } from 'i18next-vue'
 import { useInstance } from '@renderer-shared/shards'
 import { useSgpStore } from '@renderer-shared/shards/sgp/store'
@@ -48,9 +49,7 @@ watch(
     lastId = reminder.id
     shown = notification.warning({
       title: reminder.planned ? planT('reached') : t('title'),
-      content: reminder.reasons
-        .map((reason) => t(`reasons.${reason}`, { count: reminder[reason] }))
-        .join(' · '),
+      content: () => h(ReminderSummary, { reminder }),
       description: t('suggestion'),
       duration: 0,
       closable: true,

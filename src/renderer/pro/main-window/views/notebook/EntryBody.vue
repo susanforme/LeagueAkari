@@ -59,11 +59,28 @@
         <SkillIcon :slot="slot" :skills="skills" />
       </span>
     </div>
-    <template v-for="field in ['opening', 'trading', 'caution'] as const" :key="field">
-      <div v-if="content.matchupPlan?.[field]" class="text-sm break-words whitespace-pre-wrap">
-        <span class="font-medium">{{ briefT(field) }}：</span>{{ content.matchupPlan[field] }}
-      </div>
-    </template>
+    <div
+      v-if="content.matchupPlan"
+      class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2"
+    >
+      <template v-for="field in ['opening', 'trading', 'caution'] as const" :key="field">
+        <div
+          v-if="content.matchupPlan[field]"
+          class="rounded-lg border border-(--la-color-popover-border) bg-(--la-card-muted-surface) p-3"
+        >
+          <div class="mb-2 flex items-center gap-2 text-xs font-medium opacity-75">
+            <NIcon :component="planIcons[field]" :size="20" aria-hidden="true" />{{ briefT(field) }}
+          </div>
+          <div
+            class="text-sm break-words whitespace-pre-wrap"
+            :class="compact ? 'line-clamp-3' : ''"
+            :title="compact ? content.matchupPlan[field] : undefined"
+          >
+            {{ content.matchupPlan[field] }}
+          </div>
+        </div>
+      </template>
+    </div>
     <div v-if="content.text" class="break-words whitespace-pre-wrap">
       {{ compact && content.text.length > 180 ? `${content.text.slice(0, 180)}…` : content.text }}
     </div>
@@ -96,8 +113,10 @@ import { useGameResourceProvider } from '@renderer-shared/providers/game-resourc
 import type { NotebookContent, NotebookSkills } from '@shared/pro/notebook'
 import { REVIEW_ROUTE, formatGameTime } from '@shared/pro/review'
 import { useTranslation } from 'i18next-vue'
-import { NButton, NTag } from 'naive-ui'
+import { NButton, NTag, NIcon } from 'naive-ui'
 import { useRouter } from 'vue-router'
+import { Flag, Bolt, Shield } from '@vicons/tabler'
+const planIcons = { opening: Flag, trading: Bolt, caution: Shield }
 import SkillIcon from './SkillIcon.vue'
 defineProps<{ content: NotebookContent; skills: NotebookSkills; compact?: boolean }>()
 const resources = useGameResourceProvider()

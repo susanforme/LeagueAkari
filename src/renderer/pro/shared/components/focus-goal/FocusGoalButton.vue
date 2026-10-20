@@ -1,5 +1,7 @@
 <template>
-  <NButton size="tiny" @click="open">{{ t('set') }}</NButton>
+  <NButton size="tiny" @click="open"
+    ><template #icon><NIcon :component="Target" /></template>{{ t('set') }}</NButton
+  >
   <NModal
     v-model:show="show"
     preset="card"
@@ -36,7 +38,8 @@
 </template>
 <script setup lang="ts">
 import { ref, shallowRef, onScopeDispose } from 'vue'
-import { NButton, NModal, NInput, NAlert, useMessage } from 'naive-ui'
+import { NButton, NModal, NInput, NAlert, NIcon, useMessage } from 'naive-ui'
+import { Target } from '@vicons/tabler'
 import { useTranslation } from 'i18next-vue'
 import { useInstance } from '@renderer-shared/shards'
 import type { ReviewReport } from '@shared/pro/review'

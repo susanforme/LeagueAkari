@@ -26,8 +26,16 @@
           }}</span>
         </div>
         <div class="flex flex-wrap gap-3 text-xs">
-          <span v-for="category in eventKinds.slice(1)" :key="category"
-            >{{ symbols[category as keyof typeof symbols] }} {{ t(category) }}</span
+          <span
+            v-for="category in categories"
+            :key="category"
+            class="inline-flex items-center gap-1"
+            ><NIcon
+              :component="eventIcons[category]"
+              :class="eventColors[category]"
+              :size="16"
+              aria-hidden="true"
+            />{{ t(category) }}</span
           >
         </div>
         <div class="event-map relative mx-auto aspect-square w-full max-w-96">
@@ -57,8 +65,8 @@
             :title="label(point.event)"
             :aria-pressed="point.event.id === selectedId"
             @click="$emit('select', point.event)"
-            >{{ symbols[point.category] }}</NButton
-          >
+            ><NIcon :component="eventIcons[point.category]" :size="16" aria-hidden="true"
+          /></NButton>
         </div>
         <span v-if="selected" class="text-sm">{{ label(selected) }}</span>
         <span v-if="mapped.missing" class="text-xs opacity-60">{{
@@ -71,13 +79,14 @@
 </template>
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { NCard, NSelect, NCheckbox, NButton, NEmpty } from 'naive-ui'
+import { NCard, NSelect, NCheckbox, NButton, NEmpty, NIcon } from 'naive-ui'
 import { useTranslation } from 'i18next-vue'
 import map11 from '@renderer-shared/components/match-card/map-images/11.png'
 import map12 from '@renderer-shared/components/match-card/map-images/12.png'
 import map21 from '@renderer-shared/components/match-card/map-images/21.png'
 import { toBasicInfo } from '@shared/data-adapter/match-history/match-basic'
 import { formatGameTime, type ReviewReport, type ReviewEvent } from '@shared/pro/review'
+import { eventIcons, eventColors } from './icons'
 import { eventKinds, mapEvents, type EventKind } from './points'
 const props = defineProps<{
   report: ReviewReport
@@ -111,7 +120,7 @@ const range = computed(() => {
     )
   }
 })
-const symbols = { deaths: '×', kills: '⚔', objectives: '◆', buildings: '■' }
+const categories = eventKinds.filter((kind) => kind !== 'all')
 const mapId = computed(() => toBasicInfo(props.report.summary).mapId)
 const background = computed(
   () => (({ 11: map11, 12: map12, 21: map21 }) as Record<number, string>)[mapId.value]

@@ -546,6 +546,21 @@ pro:
       win: 胜利
       loss: 失败
       unknown: 胜负未知
+  visual:
+    losses: 连败
+    current: 本局
+    median: 近期中位数
+    gold: 金币
+    cs: 补刀
+    csPerMin: 补刀 / 分钟
+    deathsPer10: 死亡 / 10 分钟
+    withinMinute: 后 60 秒内
+    samples: '{{count}} 场样本'
+    games: 对局数
+    minutes: 游戏分钟
+    soloKills: 单杀
+    soloDeaths: 被单杀
+    checkpoints: 对线节点数据
   timeline:
     title: 事件时间线
     previous: 上一事件
@@ -590,7 +605,7 @@ pro:
     title: 单杀与被单杀
     kills: '单杀 {{count}} 次'
     deaths: '被单杀 {{count}} 次'
-    definition: 仅统计助攻名单明确为空的敌我英雄击杀；不代表没有防御塔伤害或其他人到场。
+    definition: 无助攻记录；仍可能有防御塔或其他玩家干扰。
     unknown: '{{count}} 个相关击杀事件缺少助攻信息，未计入'
     unavailable: 本局缺少时间线，无法统计
   matchupBrief:

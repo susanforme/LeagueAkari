@@ -30,15 +30,15 @@
                     :type="opponentId === row.opponentId ? 'primary' : 'default'"
                     @click="opponentId = row.opponentId"
                   >
-                    <ChampionIcon :champion-id="row.opponentId" class="mr-2 size-7! rounded" />{{
+                    <ChampionIcon :champion-id="row.opponentId" class="mr-2 size-10! rounded" />{{
                       resources.champions.name(row.opponentId)
                     }}
                   </NButton>
                 </td>
                 <td>{{ row.games }}</td>
-                <td><MetricValue :metric="row.winRate" ratio /></td>
-                <td><MetricValue :metric="row.goldDiff10" /></td>
-                <td><MetricValue :metric="row.csDiff10" /></td>
+                <td><MatchupMetric :metric="row.winRate" ratio /></td>
+                <td><MatchupMetric :metric="row.goldDiff10" :scale="goldScale" /></td>
+                <td><MatchupMetric :metric="row.csDiff10" :scale="csScale" /></td>
               </tr>
             </tbody>
           </NTable>
@@ -50,9 +50,16 @@
             :opponent-id="opponentId"
           />
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <span class="font-bold">{{
-              t('against', { name: resources.champions.name(opponentId) })
-            }}</span>
+            <div class="flex items-center gap-2">
+              <ChampionIcon :champion-id="query.championId ?? -1" class="size-10! rounded" /><NIcon
+                :component="Bolt"
+                :size="20"
+                aria-hidden="true"
+              /><ChampionIcon :champion-id="opponentId" class="size-10! rounded" /><span
+                class="font-bold"
+                >{{ t('against', { name: resources.champions.name(opponentId) }) }}</span
+              >
+            </div>
             <NButton
               size="small"
               @click="
@@ -99,9 +106,29 @@
   </NCard>
 </template>
 <script setup lang="ts">
-import { ref, shallowRef, watch, onMounted, onActivated, onDeactivated, onScopeDispose } from 'vue'
+import {
+  computed,
+  ref,
+  shallowRef,
+  watch,
+  onMounted,
+  onActivated,
+  onDeactivated,
+  onScopeDispose
+} from 'vue'
+import { Bolt } from '@vicons/tabler'
 import { useRouter } from 'vue-router'
-import { NCard, NButton, NTable, NAlert, NEmpty, NScrollbar, NSpin, NPagination } from 'naive-ui'
+import {
+  NIcon,
+  NCard,
+  NButton,
+  NTable,
+  NAlert,
+  NEmpty,
+  NScrollbar,
+  NSpin,
+  NPagination
+} from 'naive-ui'
 import { useTranslation } from 'i18next-vue'
 import { useInstance } from '@renderer-shared/shards'
 import { useGameResourceProvider } from '@renderer-shared/providers/game-resource'
@@ -111,7 +138,7 @@ import type { MatchupResult } from '@shared/pro/champion-pool/matchups'
 import { NOTEBOOK_ROUTE } from '@shared/pro/notebook'
 import { REVIEW_ROUTE } from '@shared/pro/review'
 import { ChampionPoolRenderer } from '../../../shared/shards/champion-pool'
-import MetricValue from './MetricValue.vue'
+import MatchupMetric from './MatchupMetric.vue'
 import MatchupBrief from './MatchupBrief.vue'
 const props = defineProps<{ query: PoolMatchQuery }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.matchups' })
@@ -124,6 +151,12 @@ const result = shallowRef<MatchupResult | null>(null),
   page = ref(1),
   loading = ref(false),
   error = ref(false)
+const goldScale = computed(() =>
+  Math.max(1, ...(result.value?.items ?? []).map((row) => Math.abs(row.goldDiff10.value ?? 0)))
+)
+const csScale = computed(() =>
+  Math.max(1, ...(result.value?.items ?? []).map((row) => Math.abs(row.csDiff10.value ?? 0)))
+)
 let active = false,
   generation = 0
 async function load() {
