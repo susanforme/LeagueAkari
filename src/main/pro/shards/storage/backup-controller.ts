@@ -22,7 +22,8 @@ const tables = [
   'BuildApplications',
   'ExperiencePreferences',
   'ExperienceWorkspaces',
-  'ExperienceScenes'
+  'ExperienceScenes',
+  'ExperiencePlans'
 ] as const
 export class BackupController {
   private _prepared: { token: string; path: string } | null = null
@@ -65,7 +66,13 @@ export class BackupController {
       )
         throw new Error('Invalid backup schema')
       const expected =
-        version === 4 ? tables.slice(0, 8) : version === 5 ? tables.slice(0, 13) : tables
+        version === 4
+          ? tables.slice(0, 8)
+          : version === 5
+            ? tables.slice(0, 13)
+            : version === 6
+              ? tables.slice(0, 16)
+              : tables
       if (schema.filter((r: { type: string }) => r.type === 'table').length !== expected.length)
         throw new Error('Invalid backup schema')
       // Compare columns against our schema before executing migrations or reading any business data.

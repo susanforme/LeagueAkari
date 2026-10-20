@@ -188,6 +188,12 @@ pro:
       UTILITY: 辅助
   review:
     findings:
+      goals:
+        goldDrop: 下局遇到经济优势变化时，先检查兵线和可见敌人，再决定推进。
+        farm: 下局前 10 分钟优先补刀，赛后核对漏刀较多的时间段。
+        goldDeficit: 下局对线落后时减少冒险换血，优先保住能安全补到的兵。
+        deathBeforeObjective: 下局大型资源争夺前先检查状态和队友位置，再决定进入河道。
+        deaths: 下局每次准备深入时先确认可见敌人和撤退路线。
       title: 本局关注点
       goldDropTitle: 经济差下降阶段
       goldDrop: '这段时间，对位经济差下降了 {{value}} 金币。'
@@ -540,7 +546,34 @@ pro:
       win: 胜利
       loss: 失败
       unknown: 胜负未知
+  timeline:
+    title: 事件时间线
+    previous: 上一事件
+    next: 下一事件
+    back: 后退 10 秒
+    forward: 前进 10 秒
+    time: 定位时间（分:秒）
+    seek: 拖动定位时间
+    invalid: 请输入本局范围内的分:秒，例如 12:30
+    full: 返回整场
+    zoom: 放大当前 3 分钟
+    cluster: '{{time}} 附近的 {{count}} 个事件，展开选择'
+    empty: 当前筛选下没有关键事件
+    leadIn: 查看前 30 秒
   eventMap:
+    team: 击杀 / 摧毁方
+    allTeams: 双方阵营
+    blue: 蓝色方
+    red: 红色方
+    unknown: 未知
+    ownSide: '本人阵营：{{side}}'
+    period: 对局阶段
+    shown: '已定位 {{count}} 个事件'
+    periods:
+      all: 整场
+      early: 前 10 分钟
+      middle: 10–15 分钟
+      late: 15 分钟后
     title: 复盘事件地图
     filter: 事件类型
     all: 全部事件
@@ -552,3 +585,51 @@ pro:
     unsupported: 暂不支持这张地图
     missing: '{{count}} 个事件没有可用坐标'
     empty: 当前范围内没有可定位的事件
+
+  duels:
+    title: 单杀与被单杀
+    kills: '单杀 {{count}} 次'
+    deaths: '被单杀 {{count}} 次'
+    definition: 仅统计助攻名单明确为空的敌我英雄击杀；不代表没有防御塔伤害或其他人到场。
+    unknown: '{{count}} 个相关击杀事件缺少助攻信息，未计入'
+    unavailable: 本局缺少时间线，无法统计
+  matchupBrief:
+    title: 对位速读
+    opening: 开局计划
+    trading: 换血窗口
+    caution: 注意事项
+    patch: '核对版本：{{patch}}'
+    refresh: 刷新
+    failed: 心得加载失败，请刷新重试
+    empty: 暂无对位心得，可通过「对阵心得」创建
+    edit: 查看 / 编辑全文
+  focusGoal:
+    empty: 暂无下局目标，可从复盘关注点或事件笔记设置
+    title: 下局只练这一件事
+    set: 设为下局目标
+    placeholder: 写一个下局能执行、赛后能核对的动作
+    replacing: '当前目标将被替换：{{text}}'
+    save: 保存为下局目标
+    saved: 已保存，赛前速查和训练中心可查看
+    failed: 保存失败或目标已更新，请重新读取后重试
+    reload: 重新读取目标
+    complete: 完成目标
+    evidence: 回看来源事件
+  playPlan:
+    title: 游玩计划
+    connect: 连接客户端后可开始游玩计划
+    active: 本轮进行中
+    ended: 本轮已结束
+    progress: '局数 {{games}} / {{planned}} · 游戏时长 {{minutes}} / {{limit}} 分钟'
+    record: '{{wins}} 胜 / {{losses}} 负'
+    missing: '{{count}} 场缺少时长记录'
+    resting: '休息还剩 {{minutes}} 分钟'
+    reached: 已达到本轮计划，可以休息或结束本轮
+    games: 计划局数
+    minutes: 计划游戏时长（分钟）
+    start: 开始本轮
+    rest: 休息 10 分钟
+    end: 结束本轮
+    skipRest: 结束休息
+    lobbyOnly: 回到大厅或结算后可调整计划
+    failed: 操作失败或计划已更新，请重试

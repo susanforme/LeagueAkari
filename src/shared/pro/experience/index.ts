@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import type { LcuOrSgpGameSummary } from '../../data-adapter/wrapper'
 import { type PoolMatch, playerSchema } from '../champion-pool'
+import type { PlanStatus } from './plan'
 
 export const EXPERIENCE_NAMESPACE = 'pro-experience-main'
 export const pageNames = [
@@ -42,6 +43,7 @@ export interface PlayReminder {
   minutes: number
   losses: number
   reasons: ('games' | 'minutes' | 'losses')[]
+  planned?: boolean
 }
 export type ExperiencePreferences = z.infer<typeof preferencesSchema>
 export const sceneValuesSchema = z.object({
@@ -63,6 +65,7 @@ export interface ExperienceStatus {
   accountKey: string
   preferences: ExperiencePreferences
   reminder: PlayReminder | null
+  plan: PlanStatus | null
   scene: string | null
   values: SceneValues
 }

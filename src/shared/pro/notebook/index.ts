@@ -19,6 +19,13 @@ export const contentSchema = z
     kind: z.enum(kinds),
     title: z.string().trim().min(1).max(120),
     text: z.string().max(30_000),
+    matchupPlan: z
+      .object({
+        opening: z.string().max(300),
+        trading: z.string().max(300),
+        caution: z.string().max(300)
+      })
+      .optional(),
     pinned: z.boolean(),
     tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
     confirmedPatch: z

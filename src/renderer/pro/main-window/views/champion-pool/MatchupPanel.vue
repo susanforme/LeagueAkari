@@ -44,6 +44,11 @@
           </NTable>
         </NScrollbar>
         <template v-if="opponentId">
+          <MatchupBrief
+            v-if="query.championId"
+            :champion-id="query.championId"
+            :opponent-id="opponentId"
+          />
           <div class="flex flex-wrap items-center justify-between gap-3">
             <span class="font-bold">{{
               t('against', { name: resources.champions.name(opponentId) })
@@ -107,6 +112,7 @@ import { NOTEBOOK_ROUTE } from '@shared/pro/notebook'
 import { REVIEW_ROUTE } from '@shared/pro/review'
 import { ChampionPoolRenderer } from '../../../shared/shards/champion-pool'
 import MetricValue from './MetricValue.vue'
+import MatchupBrief from './MatchupBrief.vue'
 const props = defineProps<{ query: PoolMatchQuery }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.matchups' })
 const { t: poolT } = useTranslation(undefined, { keyPrefix: 'pro.championPool' })

@@ -2,6 +2,7 @@
   <div class="flex flex-col gap-4">
     <NAlert v-if="!context" type="info">{{ t('waitingSelection') }}</NAlert>
     <template v-else>
+      <CurrentFocus :champion-id="context.championId" />
       <div class="flex flex-wrap items-center gap-3">
         <ChampionIcon :champion-id="context.championId" class="size-10! rounded" />
         <span class="font-bold">{{ resources.champions.name(context.championId) }}</span>
@@ -13,6 +14,7 @@
           :placeholder="t('publicOpponents')"
         />
         <NButton size="small" @click="load">{{ t('refresh') }}</NButton>
+        <NCheckbox v-model:checked="compact">{{ briefT('title') }}</NCheckbox>
       </div>
       <NAlert v-if="error" type="error">{{ t('loadFailed') }}</NAlert>
       <NAlert v-if="unavailable" type="warning"
@@ -30,7 +32,7 @@
             <template #header-extra
               ><NTag size="small">{{ t(`kinds.${entry.content.kind}`) }}</NTag></template
             >
-            <EntryBody :content="entry.content" :skills="skills" />
+            <EntryBody :content="entry.content" :skills="skills" :compact="compact" />
           </NCard>
           <NEmpty v-if="result && !result.total" :description="t('quickEmpty')" />
         </div>
@@ -50,14 +52,17 @@ import { useInstance } from '@renderer-shared/shards'
 import { useLeagueClientStore } from '@renderer-shared/shards/league-client/store'
 import { listSchema, type NotebookPage } from '@shared/pro/notebook'
 import { useTranslation } from 'i18next-vue'
-import { NAlert, NButton, NCard, NEmpty, NPagination, NSpin, NTag } from 'naive-ui'
+import { NAlert, NButton, NCard, NEmpty, NPagination, NSpin, NTag, NCheckbox } from 'naive-ui'
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
 import EntitySelect from './EntitySelect.vue'
 import EntryBody from './EntryBody.vue'
 import { quickContext } from './quick-context'
 import { useNotebookResources } from './useNotebookResources'
+import CurrentFocus from '../../../shared/components/focus-goal/CurrentFocus.vue'
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.notebook' })
+const { t: briefT } = useTranslation(undefined, { keyPrefix: 'pro.matchupBrief' })
+const compact = ref(true)
 const league = useLeagueClientStore()
 const api = useInstance(NotebookRenderer)
 const context = computed(() =>

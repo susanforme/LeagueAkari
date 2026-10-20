@@ -15,6 +15,7 @@ it('restores account-specific filters, resets absent values, and does not save d
     accountKey: 'first',
     preferences: preferencesSchema.parse({ restore: true, archive: true }),
     reminder: null,
+    plan: null,
     values: {
       autoAccept: false,
       autoHonor: false,

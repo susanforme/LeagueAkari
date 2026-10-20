@@ -191,6 +191,12 @@ pro:
       UTILITY: Support
   review:
     findings:
+      goals:
+        goldDrop: Check the wave and visible enemies before pushing when my gold lead changes.
+        farm: Prioritize farming in the first 10 minutes and review where I missed CS.
+        goldDeficit: Avoid risky trades from behind and secure the CS I can safely reach.
+        deathBeforeObjective: Check my resources and teammates before entering the river for an objective.
+        deaths: Check visible enemies and my escape route before moving deeper.
       title: Match highlights
       goldDropTitle: Falling gold difference
       goldDrop: 'Your gold difference against the lane opponent fell by {{value}} during this interval.'
@@ -552,7 +558,36 @@ pro:
       win: Win
       loss: Loss
       unknown: Unknown result
+  timeline:
+    title: Event timeline
+    previous: Previous event
+    next: Next event
+    back: Back 10 seconds
+    forward: Forward 10 seconds
+    time: Go to time (m:ss)
+    seek: Seek game time
+    invalid: Enter a time within this match as m:ss, for example 12:30
+    full: Entire match
+    zoom: Zoom to 3 minutes
+    cluster_one: '{{count}} event near {{time}}, expand to select'
+    cluster_other: '{{count}} events near {{time}}, expand to select'
+    empty: No key events match these filters
+    leadIn: Look back 30 seconds
   eventMap:
+    team: Killing / destroying team
+    allTeams: Both teams
+    blue: Blue side
+    red: Red side
+    unknown: Unknown
+    ownSide: 'Your side: {{side}}'
+    period: Game phase
+    shown_one: '{{count}} located event'
+    shown_other: '{{count}} located events'
+    periods:
+      all: Entire match
+      early: First 10 minutes
+      middle: 10–15 minutes
+      late: After 15 minutes
     title: Review event map
     filter: Event type
     all: All events
@@ -565,3 +600,55 @@ pro:
     missing_one: '{{count}} event has no usable coordinates'
     missing_other: '{{count}} events have no usable coordinates'
     empty: No events with coordinates in this range
+
+  duels:
+    title: Solo kills and deaths
+    kills_one: '{{count}} solo kill'
+    kills_other: '{{count}} solo kills'
+    deaths_one: '{{count}} solo death'
+    deaths_other: '{{count}} solo deaths'
+    definition: Enemy champion kills with an explicitly empty assist list; tower damage and nearby players may still be involved.
+    unknown_one: '{{count}} related kill has unknown assists and was excluded'
+    unknown_other: '{{count}} related kills have unknown assists and were excluded'
+    unavailable: Timeline unavailable for this match
+  matchupBrief:
+    title: Matchup brief
+    opening: Opening plan
+    trading: Trading window
+    caution: Watch out for
+    patch: 'Checked patch: {{patch}}'
+    refresh: Refresh
+    failed: Could not load notes. Refresh to retry.
+    empty: No matchup notes yet. Create one through Matchup notes.
+    edit: Read / edit full note
+  focusGoal:
+    empty: No next-game focus. Set one from a review finding or event note.
+    title: One focus for the next game
+    set: Set next-game focus
+    placeholder: Write one action to practice and check after the game
+    replacing: 'This will replace your current focus: {{text}}'
+    save: Save next-game focus
+    saved: Saved to pre-game lookup and Training
+    failed: Save failed or your focus changed. Reload and try again.
+    reload: Reload current focus
+    complete: Complete focus
+    evidence: View source event
+  playPlan:
+    title: Play plan
+    connect: Connect your client to start a play plan
+    active: Current block
+    ended: Block ended
+    progress: 'Games: {{games}} / {{planned}} · Minutes played: {{minutes}} / {{limit}}'
+    record: 'Wins: {{wins}} / Losses: {{losses}}'
+    missing_one: '{{count}} match has no duration'
+    missing_other: '{{count}} matches have no duration'
+    resting: 'Rest remaining: {{minutes}} min'
+    reached: You reached your plan. Take a break or end this block.
+    games: Planned games
+    minutes: Planned play time (minutes)
+    start: Start block
+    rest: Rest for 10 minutes
+    end: End block
+    skipRest: End break
+    lobbyOnly: Change your plan in lobby or after the game
+    failed: Action failed or the plan changed. Please retry.

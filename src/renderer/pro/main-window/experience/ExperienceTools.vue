@@ -2,6 +2,7 @@
   <div class="experience-tools flex items-center gap-2">
     <NButton size="tiny" quaternary @click="searchOpen = true">{{ t('search') }} ⌘/Ctrl K</NButton>
     <SceneMenu />
+    <PlayPlanMenu />
     <NPopover trigger="click" placement="bottom-end">
       <template #trigger
         ><NButton size="tiny" quaternary :type="failed ? 'warning' : 'default'"
@@ -65,6 +66,7 @@ import { ChampionPoolRenderer } from '../../shared/shards/champion-pool'
 import QuickSearch from './QuickSearch.vue'
 import SceneMenu from './SceneMenu.vue'
 import PlayReminder from './PlayReminder.vue'
+import PlayPlanMenu from './PlayPlanMenu.vue'
 import { ProgressRenderer } from '../../shared/shards/progress'
 import type { ReviewBatch } from '@shared/pro/progress'
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.experience' })

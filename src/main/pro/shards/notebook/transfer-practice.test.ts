@@ -27,6 +27,46 @@ describe.runIf(!!process.versions.electron)('notebook transfer and practice', ()
     await database.destroy()
     await rm(directory, { recursive: true, force: true })
   })
+  it('preserves matchup briefs through edits, revision restore, and export/import', async () => {
+    const entry = await controller.save({
+      id: null,
+      expectedRevision: 0,
+      content: {
+        ...blankContent(103, 'matchup'),
+        title: 'Against Lux',
+        opponentId: 99,
+        matchupPlan: {
+          opening: 'Farm safely',
+          trading: 'After Q misses',
+          caution: 'Keep a minion between us'
+        }
+      }
+    })
+    const changed = await controller.save({
+      id: entry.id,
+      expectedRevision: 1,
+      content: {
+        ...entry.content,
+        matchupPlan: { ...entry.content.matchupPlan!, trading: 'Trade after E' }
+      }
+    })
+    const restored = await controller.change({
+      id: entry.id,
+      expectedRevision: changed.revision,
+      action: 'restore',
+      revision: 1
+    })
+    expect(restored.content.matchupPlan).toEqual(entry.content.matchupPlan)
+    const bundle = {
+      format: 'akari-notebook' as const,
+      version: 1 as const,
+      entries: [{ id: randomUUID(), content: { ...restored.content, championId: 7 } }]
+    }
+    await controller.transfer({ bundle, replacements: [], commit: true })
+    expect(
+      (await controller.list(listSchema.parse({ championId: 7 }))).items[0].content.matchupPlan
+    ).toEqual(entry.content.matchupPlan)
+  })
   it('previews without writing, remaps links, deduplicates reimports and restores replaced revisions', async () => {
     const a = randomUUID(),
       b = randomUUID(),

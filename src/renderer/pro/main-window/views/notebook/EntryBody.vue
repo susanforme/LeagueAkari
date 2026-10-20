@@ -59,7 +59,17 @@
         <SkillIcon :slot="slot" :skills="skills" />
       </span>
     </div>
-    <div v-if="content.text" class="break-words whitespace-pre-wrap">{{ content.text }}</div>
+    <template v-for="field in ['opening', 'trading', 'caution'] as const" :key="field">
+      <div v-if="content.matchupPlan?.[field]" class="text-sm break-words whitespace-pre-wrap">
+        <span class="font-medium">{{ briefT(field) }}：</span>{{ content.matchupPlan[field] }}
+      </div>
+    </template>
+    <div v-if="content.text" class="break-words whitespace-pre-wrap">
+      {{ compact && content.text.length > 180 ? `${content.text.slice(0, 180)}…` : content.text }}
+    </div>
+    <span v-if="content.confirmedPatch" class="text-xs opacity-60">{{
+      briefT('patch', { patch: content.confirmedPatch })
+    }}</span>
     <span v-if="content.source" class="text-xs opacity-60">{{
       t('matchSource', { id: content.source.gameId })
     }}</span>
@@ -89,9 +99,10 @@ import { useTranslation } from 'i18next-vue'
 import { NButton, NTag } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import SkillIcon from './SkillIcon.vue'
-defineProps<{ content: NotebookContent; skills: NotebookSkills }>()
+defineProps<{ content: NotebookContent; skills: NotebookSkills; compact?: boolean }>()
 const resources = useGameResourceProvider()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.notebook' })
+const { t: briefT } = useTranslation(undefined, { keyPrefix: 'pro.matchupBrief' })
 const { t: reviewT } = useTranslation(undefined, { keyPrefix: 'pro.review' })
 const router = useRouter()
 </script>

@@ -3,7 +3,7 @@
     <NRadioGroup v-model:value="metric" size="small">
       <NRadioButton v-for="key in metrics" :key="key" :value="key">{{ t(key) }}</NRadioButton>
     </NRadioGroup>
-    <div class="h-64"><Line :data="data" :options="options" /></div>
+    <div class="h-64"><Line :data="data" :options="options" :plugins="[cursor]" /></div>
   </div>
 </template>
 <script setup lang="ts">
@@ -16,6 +16,7 @@ import {
   LineElement,
   Tooltip,
   Legend,
+  type Plugin,
   type ChartOptions
 } from 'chart.js'
 import { useTranslation } from 'i18next-vue'
@@ -26,10 +27,30 @@ import { Line } from 'vue-chartjs'
 ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend)
 const props = defineProps<{
   reports: ReviewReport[]
+  timestamp?: number
   from?: number
   to?: number
   focusWindow?: ReviewFinding['evidence']
 }>()
+const emit = defineEmits<{ seek: [timestamp: number] }>()
+const cursor: Plugin<'line'> = {
+  id: 'review-time-cursor',
+  afterDraw(chart) {
+    if (props.timestamp === undefined) return
+    const x = chart.scales.x.getPixelForValue(props.timestamp)
+    const { top, bottom, left, right } = chart.chartArea
+    if (x < left || x > right) return
+    const ctx = chart.ctx
+    ctx.save()
+    ctx.strokeStyle = resources.runtime.colorMode === 'dark' ? '#ddd' : '#444'
+    ctx.setLineDash([4, 4])
+    ctx.beginPath()
+    ctx.moveTo(x, top)
+    ctx.lineTo(x, bottom)
+    ctx.stroke()
+    ctx.restore()
+  }
+}
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.review' })
 const resources = useGameResourceProvider()
 const metrics = ['gold', 'cs', 'goldDiff'] as const
@@ -64,6 +85,13 @@ const options = computed<ChartOptions<'line'>>(() => {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
+    onClick: (event, _elements, chart) => {
+      if (props.timestamp === undefined || event.x == null || event.y == null) return
+      const { left, right, top, bottom } = chart.chartArea
+      if (event.x < left || event.x > right || event.y < top || event.y > bottom) return
+      const value = chart.scales.x.getValueForPixel(event.x)
+      if (value !== undefined) emit('seek', Math.round(value / 1000) * 1000)
+    },
     plugins: {
       datalabels: { display: false },
       legend: { labels: { color } },

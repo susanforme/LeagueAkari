@@ -25,6 +25,25 @@
       />
       <NCheckbox v-model:checked="content.pinned">{{ t('pinned') }}</NCheckbox>
     </div>
+    <template v-if="content.kind === 'matchup'">
+      <span class="font-medium">{{ briefT('title') }}</span>
+      <NInput
+        v-for="field in ['opening', 'trading', 'caution'] as const"
+        :key="field"
+        :value="content.matchupPlan?.[field] ?? ''"
+        :maxlength="300"
+        type="textarea"
+        :autosize="{ minRows: 1, maxRows: 3 }"
+        :placeholder="briefT(field)"
+        :input-props="{ 'aria-label': briefT(field) }"
+        @update:value="
+          (value) => {
+            content.matchupPlan ??= { opening: '', trading: '', caution: '' }
+            content.matchupPlan[field] = value
+          }
+        "
+      />
+    </template>
     <template v-if="content.kind === 'combo'">
       <div
         v-for="(step, index) in content.steps"
@@ -240,6 +259,7 @@ defineProps<{
 }>()
 const resources = useGameResourceProvider()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.notebook' })
+const { t: briefT } = useTranslation(undefined, { keyPrefix: 'pro.matchupBrief' })
 const actionOptions = computed(() =>
   actions.map((value) => ({ value, label: t(`actions.${value}`) }))
 )

@@ -195,6 +195,33 @@ describe.runIf(!!process.versions.electron)('experience persistence and presets'
     await vi.advanceTimersByTimeAsync(5000)
     expect((await controller.status()).reminder).toBeNull()
   })
+  it('archives for an explicit plan even with automatic reminders off and delivers once per settlement', async () => {
+    const { settle } = await enableReminders()
+    await controller.preferences({ restore: true, archive: false })
+    const now = Date.now(),
+      player = { serverId: 'EUW1', puuid: 'player' }
+    vi.setSystemTime(now - 21 * 60_000)
+    await controller.changePlan({
+      player,
+      revision: 0,
+      action: { kind: 'start', games: 1, minutes: 90 }
+    })
+    vi.setSystemTime(now)
+    settle()
+    await vi.advanceTimersByTimeAsync(5000)
+    const status = await controller.status()
+    expect(status.reminder).toMatchObject({ planned: true, games: 1, reasons: ['games'] })
+    expect(status.plan?.progress.reached).toBe(true)
+    controller.dismissReminder(status.reminder!.id)
+    settle()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect((await controller.status()).reminder).toBeNull()
+    await controller.changePlan({ player, revision: 1, action: { kind: 'rest', minutes: 10 } })
+    vi.mocked(context.pool.archive).mockClear()
+    settle()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(context.pool.archive).not.toHaveBeenCalled()
+  })
   it.each(['archive', 'match'] as const)(
     'drops an in-flight %s after reconnecting to the same account',
     async (operation) => {

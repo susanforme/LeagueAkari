@@ -1,24 +1,23 @@
 <template>
   <div class="flex flex-col gap-3">
-    <div class="flex flex-wrap items-center gap-3">
+    <ReviewTimeline
+      :events="filteredEvents"
+      :timestamp="timestamp"
+      :duration="report.analysis.duration"
+      :participant-id="report.analysis.participantId"
+      :selected-id="eventId"
+      :describe="describe"
+      @seek="seek"
+      @select="locateEvent"
+    >
       <NSelect
-        v-model:value="eventId"
-        class="min-w-60 flex-1"
-        clearable
-        :options="eventOptions"
-        :placeholder="t('selectEvent')"
-        @update:value="selectEvent"
+        v-model:value="kind"
+        class="w-44!"
+        :options="kindOptions"
+        :aria-label="tm('filter')"
       />
-      <NInputNumber
-        v-model:value="seconds"
-        :min="0"
-        :max="Math.floor(report.analysis.duration / 1000)"
-        :precision="3"
-        :input-props="{ 'aria-label': t('timeSeconds') }"
-        class="w-40!"
-      />
-      <span class="text-xs">{{ t('timeSeconds') }}</span>
-    </div>
+      <NSelect v-model:value="team" class="w-36!" :options="teamOptions" :aria-label="tm('team')" />
+    </ReviewTimeline>
     <div class="flex items-center gap-2">
       <span>{{ tw('windowSeconds') }}</span
       ><NInputNumber
@@ -40,42 +39,89 @@
       <span>{{ t('csChange') }}: {{ delta('cs') }}</span>
       <span>{{ t('goldDiffChange') }}: {{ delta('goldDiff') }}</span>
     </div>
-    <EventMap
-      :report="report"
-      :from="window.from"
-      :to="window.to"
-      :selected-id="eventId"
-      :describe="describe"
-      @select="locateEvent"
-    />
+    <div class="flex flex-wrap items-start gap-3">
+      <EventMap
+        class="min-w-0 flex-1 basis-80!"
+        :report="report"
+        :from="window.from"
+        :to="window.to"
+        :selected-id="eventId"
+        :kind="kind"
+        :team="team"
+        :describe="describe"
+        @select="locateEvent"
+      />
+      <NCard size="small" :title="t('eventsTitle')" class="min-w-0 flex-1 basis-72!">
+        <NScrollbar ref="eventScroll" style="max-height: 390px">
+          <div ref="eventList" class="relative flex flex-col gap-2">
+            <div
+              v-for="event in visibleEvents"
+              :key="event.id"
+              class="flex flex-wrap items-center gap-2 rounded p-2 text-xs"
+              :class="
+                event.id === eventId
+                  ? 'bg-(--la-card-muted-surface) ring-1 ring-(--la-color-link)'
+                  : ''
+              "
+              :data-selected-event="event.id === eventId || undefined"
+            >
+              <NButton
+                text
+                size="tiny"
+                :aria-pressed="event.id === eventId"
+                @click="locateEvent(event)"
+                >{{ formatGameTime(event.timestamp) }}</NButton
+              >
+              <span>{{ describe(event) }}</span
+              ><NTag v-if="junglerInvolved(event)" size="small" type="warning">{{
+                tw('enemyJungler')
+              }}</NTag>
+              <span v-if="event.position" class="opacity-60"
+                >({{ event.position.x }}, {{ event.position.y }})</span
+              >
+              <span class="opacity-60">{{ t('evidence') }} {{ event.id }}</span>
+            </div>
+            <NEmpty v-if="!visibleEvents.length" :description="t('noEvents')" />
+          </div>
+        </NScrollbar>
+      </NCard>
+    </div>
     <ReviewChart
       :reports="[report]"
       :from="window.from"
       :to="window.to"
       :focus-window="focusWindow"
+      :timestamp="timestamp"
+      @seek="seek"
     />
-    <NScrollbar style="max-height: 240px">
-      <div class="flex flex-col gap-2">
+    <NCard size="small" :title="td('title')">
+      <NEmpty
+        v-if="report.analysis.limitations.includes('timelineMissing')"
+        :description="td('unavailable')"
+      />
+      <template v-else>
         <div
-          v-for="event in window.events"
-          :key="event.id"
-          class="flex flex-wrap items-center gap-2 text-xs"
+          v-for="group in ['kills', 'deaths'] as const"
+          :key="group"
+          class="mb-2 flex flex-wrap items-center gap-3"
         >
-          <NButton text size="tiny" @click="locateEvent(event)">{{
-            formatGameTime(event.timestamp)
-          }}</NButton>
-          <span>{{ describe(event) }}</span
-          ><NTag v-if="junglerInvolved(event)" size="small" type="warning">{{
-            tw('enemyJungler')
-          }}</NTag>
-          <span v-if="event.position" class="opacity-60"
-            >({{ event.position.x }}, {{ event.position.y }})</span
+          <span>{{ td(group, { count: duels[group].length }) }}</span>
+          <NButton
+            v-for="event in duels[group]"
+            :key="event.id"
+            size="tiny"
+            @click="locateEvent(event)"
           >
-          <span class="opacity-60">{{ t('evidence') }} {{ event.id }}</span>
+            {{ formatGameTime(event.timestamp) }} ·
+            {{ champion(group === 'kills' ? event.victimId : event.killerId) }}
+          </NButton>
         </div>
-        <NEmpty v-if="!window.events.length" :description="t('noEvents')" />
-      </div>
-    </NScrollbar>
+        <span class="text-xs opacity-60">{{ td('definition') }}</span>
+        <div v-if="duels.unknown" class="mt-1 text-xs opacity-60">
+          {{ td('unknown', { count: duels.unknown }) }}
+        </div>
+      </template>
+    </NCard>
     <NDivider />
     <span class="font-bold">{{ t('notes') }} · {{ formatGameTime(timestamp) }}</span>
     <NInput
@@ -86,6 +132,7 @@
       :disabled="saving"
     />
     <div class="flex gap-2">
+      <FocusGoalButton :report="report" :timestamp="timestamp" :suggestion="draft.slice(0, 300)" />
       <NButton size="small" :loading="saving" :disabled="!draft.trim() || saving" @click="save">{{
         t('saveNote')
       }}</NButton>
@@ -103,12 +150,9 @@
     <NAlert v-if="error" type="error">{{ t('saveFailed') }}</NAlert>
     <NCard v-for="note in notes?.items" :key="note.id" size="small">
       <template #header
-        ><NButton
-          text
-          size="small"
-          @click="seconds = (note.content.source?.timestamp ?? 0) / 1000"
-          >{{ note.content.title }}</NButton
-        ></template
+        ><NButton text size="small" @click="seek(note.content.source?.timestamp ?? 0)">{{
+          note.content.title
+        }}</NButton></template
       >
       <div class="text-sm whitespace-pre-wrap">{{ note.content.text }}</div>
     </NCard>
@@ -144,16 +188,21 @@ import {
   NPagination,
   NScrollbar,
   NSelect,
-  useDialog
+  useDialog,
+  type ScrollbarInst
 } from 'naive-ui'
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
 import ReviewChart from './ReviewChart.vue'
 import EventMap from './event-map/EventMap.vue'
+import ReviewTimeline from './timeline/ReviewTimeline.vue'
+import { eventKind, eventKinds, eventTeam, type EventKind } from './event-map/points'
 import { toParticipants } from '@shared/data-adapter/match-history/participants'
 import { toBasicInfo } from '@shared/data-adapter/match-history/match-basic'
 import type { ReviewFinding } from '@shared/pro/review/findings'
+import { personalDuels } from '@shared/pro/review/duels'
+import FocusGoalButton from '../../../shared/components/focus-goal/FocusGoalButton.vue'
 const props = defineProps<{
   report: ReviewReport
   focus: number
@@ -161,6 +210,9 @@ const props = defineProps<{
 }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.review' })
 const { t: tw } = useTranslation(undefined, { keyPrefix: 'pro.workshop' })
+const { t: tm } = useTranslation(undefined, { keyPrefix: 'pro.eventMap' })
+const { t: td } = useTranslation(undefined, { keyPrefix: 'pro.duels' })
+const duels = computed(() => personalDuels(props.report.analysis))
 const radius = ref<number | null>(60)
 const api = useInstance(NotebookRenderer)
 const resources = useGameResourceProvider()
@@ -168,6 +220,16 @@ const router = useRouter()
 const dialog = useDialog()
 const seconds = ref<number | null>(0)
 const eventId = ref<string | null>(null)
+const eventScroll = ref<ScrollbarInst>()
+const eventList = ref<HTMLElement>()
+watch(
+  eventId,
+  () => {
+    const selected = eventList.value?.querySelector<HTMLElement>('[data-selected-event="true"]')
+    if (selected) eventScroll.value?.scrollTo({ top: Math.max(0, selected.offsetTop - 100) })
+  },
+  { flush: 'post' }
+)
 const timestamp = computed(() =>
   Math.min(props.report.analysis.duration, Math.max(0, Math.round((seconds.value ?? 0) * 1000)))
 )
@@ -203,24 +265,43 @@ function describe(event: ReviewEvent) {
     return `${champion(event.killerId)} · ${t('building')} · ${event.laneType ?? ''} · ${event.buildingType ?? ''}`
   return `${champion(event.participantId)} · ${t(`events.${event.type}`, { defaultValue: event.type })} · ${resources.items.display(event.itemId ?? 0)?.name ?? event.itemId ?? ''}`
 }
-const eventOptions = computed(() =>
-  props.report.analysis.events
-    .filter((event) =>
-      ['CHAMPION_KILL', 'ELITE_MONSTER_KILL', 'BUILDING_KILL'].includes(event.type)
-    )
-    .map((event) => ({
-      value: event.id,
-      label: `${formatGameTime(event.timestamp)} · ${describe(event)}`
-    }))
+const kind = ref<EventKind>('all')
+const team = ref<number | 'all'>('all')
+const kindOptions = computed(() => eventKinds.map((value) => ({ value, label: tm(value) })))
+const teamOptions = computed(() => [
+  { value: 'all', label: tm('allTeams') },
+  { value: 100, label: tm('blue') },
+  { value: 200, label: tm('red') }
+])
+function matchesFilter(event: ReviewEvent) {
+  return (
+    (kind.value === 'all' ||
+      eventKind(event, props.report.analysis.participantId) === kind.value) &&
+    (team.value === 'all' || eventTeam(event, props.report.analysis.participants) === team.value)
+  )
+}
+const filteredEvents = computed(() =>
+  props.report.analysis.events.filter(
+    (event) => eventKind(event, props.report.analysis.participantId) && matchesFilter(event)
+  )
 )
+const visibleEvents = computed(() => window.value.events.filter(matchesFilter))
+function seek(value: number) {
+  seconds.value = value / 1000
+  eventId.value = null
+}
 function locateEvent(event: ReviewEvent) {
+  if (!matchesFilter(event)) {
+    kind.value = 'all'
+    team.value = 'all'
+  }
   seconds.value = event.timestamp / 1000
-  eventId.value = eventOptions.value.some((option) => option.value === event.id) ? event.id : null
+  eventId.value = event.id
 }
-function selectEvent(id: string | null) {
-  const event = props.report.analysis.events.find((e) => e.id === id)
-  if (event) locateEvent(event)
-}
+watch([kind, team], () => {
+  const selected = props.report.analysis.events.find((e) => e.id === eventId.value)
+  if (selected && !matchesFilter(selected)) eventId.value = null
+})
 function delta(key: keyof Omit<ReviewPoint, 'timestamp'>) {
   const before = window.value.before?.[key]
   const after = window.value.after?.[key]
@@ -275,8 +356,8 @@ watch(
     if (evidence) radius.value = Math.max(15, (evidence.to - evidence.from) / 2000)
     seconds.value = Math.min(value, props.report.analysis.duration) / 1000
     const event = props.report.analysis.events.find((event) => event.timestamp === value)
-    eventId.value =
-      event && eventOptions.value.some((option) => option.value === event.id) ? event.id : null
+    eventId.value = null
+    if (event) locateEvent(event)
   },
   { immediate: true }
 )

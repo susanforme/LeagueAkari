@@ -18,6 +18,7 @@ import {
   sceneSchema,
   workspaceSchema
 } from '@shared/pro/experience'
+import type { PlanChange } from '@shared/pro/experience/plan'
 import { playReminder } from '@shared/pro/experience/play-reminder'
 import { partnerSummary, sessionSummary } from '@shared/pro/experience/summary'
 import type { ProfileSnapshot } from '@shared/pro/profile'
@@ -26,6 +27,7 @@ import type { z } from 'zod'
 
 import type { ChampionPoolMain } from '../champion-pool'
 import type { ProStorageMain } from '../storage'
+import { PlanController } from './plan-controller'
 
 export interface ExperienceContext {
   storage: ProStorageMain
@@ -60,8 +62,27 @@ export class ExperienceController {
   private _sceneBusy = false
   private _expectedGame: number | null = null
   private _attempt = 0
+  private _activePlanKey: string | null = null
+  private _planGeneration = 0
+  readonly plans: PlanController
   archiveError = false
-  constructor(private readonly _context: ExperienceContext) {}
+  constructor(private readonly _context: ExperienceContext) {
+    this.plans = new PlanController(
+      () => this._database,
+      () => this.identity(),
+      () => this._context.leagueClient.data.gameflow?.phase ?? null
+    )
+  }
+  async changePlan(input: PlanChange) {
+    const plan = await this.plans.change(input)
+    const identity = this.identity()
+    if (identity?.serverId === input.player.serverId && identity?.puuid === input.player.puuid) {
+      this._planGeneration++
+      this._activePlanKey = plan.session?.endedAt === null ? JSON.stringify(identity) : null
+      this._reminder = null
+    }
+    return plan
+  }
   private get _database() {
     return this._context.storage.dataSource
   }
@@ -87,6 +108,7 @@ export class ExperienceController {
             this._sessionGeneration++
             this._reminder = null
             this._expectedGame = null
+            this._activePlanKey = null
           }
           const identity = this.identity()
           if (identity) {
@@ -97,6 +119,22 @@ export class ExperienceController {
               this.archiveError = false
             }
             this._lastAccount = key
+            const generation = this._sessionGeneration
+            const planGeneration = ++this._planGeneration
+            void this.plans
+              .get(identity)
+              .then((plan) => {
+                if (
+                  generation !== this._sessionGeneration ||
+                  planGeneration !== this._planGeneration ||
+                  this._disposed
+                )
+                  return
+                this._activePlanKey =
+                  plan.session?.endedAt === null ? JSON.stringify(identity) : null
+                this._schedule()
+              })
+              .catch(() => this._context.logger.warn('Unable to restore play plan'))
           }
           this._schedule()
         },
@@ -129,7 +167,9 @@ export class ExperienceController {
   private _shouldArchive() {
     return (
       this._preferences.archive ||
-      (this._preferences.reminder.enabled && this._expectedGame !== null)
+      ((this._preferences.reminder.enabled ||
+        this._activePlanKey === JSON.stringify(this.identity())) &&
+        this._expectedGame !== null)
     )
   }
   dismissReminder(id: string) {
@@ -166,7 +206,33 @@ export class ExperienceController {
         if (this._attempt < 3) this._schedule()
         else throw new Error('Latest match is not available yet')
       } else {
-        if (expectedGame && this._preferences.reminder.enabled) {
+        if (expectedGame && this._activePlanKey === JSON.stringify(player)) {
+          const planGeneration = this._planGeneration
+          const planned = await this.plans.status(player)
+          if (!isCurrent()) return
+          const session = planned.plan.session
+          const id = JSON.stringify([player.serverId, player.puuid, expectedGame])
+          if (
+            planGeneration === this._planGeneration &&
+            session?.endedAt === null &&
+            planned.progress.reached &&
+            id !== this._lastReminder
+          ) {
+            this._lastReminder = id
+            this._reminder = {
+              id,
+              planned: true,
+              games: planned.progress.games,
+              minutes: planned.progress.minutes,
+              losses: planned.progress.losses,
+              reasons: [
+                ...(planned.progress.games >= session.games ? ['games' as const] : []),
+                ...(planned.progress.minutes >= session.minutes ? ['minutes' as const] : [])
+              ]
+            }
+          }
+        }
+        if (expectedGame && this._preferences.reminder.enabled && !this._reminder?.planned) {
           const rows: { projection: string; summary: string }[] = await this._database.query(
             'SELECT projection,summary FROM PoolMatches WHERE serverId=? AND puuid=? ORDER BY startedAt DESC,gameId DESC LIMIT 200',
             [player.serverId, player.puuid]
@@ -220,12 +286,17 @@ export class ExperienceController {
     }
   }
   async status(): Promise<ExperienceStatus & { archiveError: boolean; archiving: boolean }> {
+    const generation = this._sessionGeneration
+    const account = this.identity()
     const values = this._values(),
       scenes = await this.scenes()
+    const plan = account ? await this.plans.status(account) : null
+    if (generation !== this._sessionGeneration) throw new Error('Account changed')
     return {
-      account: this.identity(),
+      account,
       accountKey: this._lastAccount,
       preferences: this._preferences,
+      plan,
       reminder:
         this.identity() &&
         ['EndOfGame', 'PreEndOfGame', 'Lobby', 'None'].includes(
@@ -251,7 +322,7 @@ export class ExperienceController {
       [JSON.stringify(value)]
     )
     this._preferences = value
-    if (!value.reminder.enabled) this._reminder = null
+    if (!value.reminder.enabled && !this._reminder?.planned) this._reminder = null
     if (this._shouldArchive()) this._schedule()
   }
   async workspace(accountKey: string): Promise<Workspace | null> {

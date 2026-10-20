@@ -17,6 +17,7 @@ const api = useInstance(ExperienceRenderer),
   league = useLeagueClientStore(),
   sgp = useSgpStore()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.experience.playReminder' })
+const { t: planT } = useTranslation(undefined, { keyPrefix: 'pro.playPlan' })
 const notification = useNotification(),
   failedId = ref<string | null>(null)
 let shown: NotificationReactive | null = null,
@@ -46,7 +47,7 @@ watch(
     shown?.destroy()
     lastId = reminder.id
     shown = notification.warning({
-      title: t('title'),
+      title: reminder.planned ? planT('reached') : t('title'),
       content: reminder.reasons
         .map((reason) => t(`reasons.${reason}`, { count: reminder[reason] }))
         .join(' · '),

@@ -11,11 +11,21 @@ import {
   type SocialSummary,
   type Workspace
 } from '@shared/pro/experience'
+import type { FocusPage, PlanChange, PlanStatus, PlayPlan } from '@shared/pro/experience/plan'
 
 @Shard(ExperienceRenderer.id)
 export class ExperienceRenderer {
   static id = 'pro-experience-renderer'
   constructor(@Dep(AkariIpcRenderer) private readonly _ipc: AkariIpcRenderer) {}
+  focuses(page: number) {
+    return this._ipc.call<FocusPage>(EXPERIENCE_NAMESPACE, 'focuses', page)
+  }
+  plan(player: PlayerIdentity) {
+    return this._ipc.call<PlanStatus>(EXPERIENCE_NAMESPACE, 'plan', player)
+  }
+  changePlan(input: PlanChange) {
+    return this._ipc.call<PlayPlan>(EXPERIENCE_NAMESPACE, 'changePlan', input)
+  }
   dismissReminder(id: string) {
     return this._ipc.call<void>(EXPERIENCE_NAMESPACE, 'dismissReminder', id)
   }

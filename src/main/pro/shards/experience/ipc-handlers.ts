@@ -8,6 +8,7 @@ import {
   sharedGamesSchema,
   workspaceSchema
 } from '@shared/pro/experience'
+import { planChangeSchema } from '@shared/pro/experience/plan'
 import { clipboard, dialog, nativeImage } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { z } from 'zod'
@@ -16,6 +17,15 @@ import type { ExperienceController } from './experience-controller'
 
 export function registerExperienceHandlers(ipc: AkariIpcMain, controller: ExperienceController) {
   const keySchema = z.string().min(1).max(500)
+  ipc.onCall(EXPERIENCE_NAMESPACE, 'focuses', (_, page) =>
+    controller.plans.focuses(z.number().int().min(1).max(100_000).parse(page))
+  )
+  ipc.onCall(EXPERIENCE_NAMESPACE, 'plan', (_, player) =>
+    controller.plans.status(playerSchema.parse(player))
+  )
+  ipc.onCall(EXPERIENCE_NAMESPACE, 'changePlan', (_, input) =>
+    controller.changePlan(planChangeSchema.parse(input))
+  )
   ipc.onCall(EXPERIENCE_NAMESPACE, 'dismissReminder', (_, id) =>
     controller.dismissReminder(keySchema.parse(id))
   )

@@ -38,3 +38,25 @@ it('filters by event category and inclusive time window without inventing locati
   expect(mapEvents(events, 11, 1, 'objectives', 0, 1000)).toEqual({ points: [], missing: 1 })
   expect(mapEvents(events, 999, 1, 'all', 0, 1000)).toEqual({ points: [], missing: 0 })
 })
+it('filters by the acting team, including destroyed buildings, without assigning unknown killers', () => {
+  const participants = [
+    { id: 1, championId: 103, teamId: 100 },
+    { id: 6, championId: 99, teamId: 200 }
+  ]
+  const input = [
+    ...events,
+    {
+      id: 'building',
+      type: 'BUILDING_KILL',
+      timestamp: 500,
+      teamId: 200,
+      position: { x: 100, y: 100 }
+    }
+  ]
+  expect(
+    mapEvents(input, 11, 1, 'all', 0, 1000, 100, participants).points.map((p) => p.event.id)
+  ).toEqual(['kill', 'building'])
+  expect(
+    mapEvents(input, 11, 1, 'all', 0, 1000, 200, participants).points.map((p) => p.event.id)
+  ).toEqual(['death'])
+})

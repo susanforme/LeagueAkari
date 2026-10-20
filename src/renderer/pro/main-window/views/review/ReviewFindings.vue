@@ -12,6 +12,11 @@
           }}</NButton
         >
         <div v-else class="font-medium">{{ t(`${finding.kind}Title`) }}</div>
+        <FocusGoalButton
+          :report="report"
+          :timestamp="finding.evidence?.from ?? 0"
+          :suggestion="t(`goals.${finding.kind}`)"
+        />
         <div class="mt-1 text-sm">
           {{
             t(finding.kind === 'farm' && !finding.evidence ? 'farmSummary' : finding.kind, {
@@ -48,6 +53,7 @@ import { reviewFindings, type ReviewFinding } from '@shared/pro/review/findings'
 import { useTranslation } from 'i18next-vue'
 import { NButton, NCard } from 'naive-ui'
 import { computed } from 'vue'
+import FocusGoalButton from '../../../shared/components/focus-goal/FocusGoalButton.vue'
 
 const props = defineProps<{ report: ReviewReport; insights: Insights | null }>()
 defineEmits<{

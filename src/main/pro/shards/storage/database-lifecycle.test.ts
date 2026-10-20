@@ -34,7 +34,7 @@ describe.runIf(!!process.versions.electron)('pro SQLite lifecycle', () => {
     await source.destroy()
     await initializeProDatabase(source)
     expect(await source.query('SELECT name FROM PoolPlayers')).toEqual([{ name: 'Name#Tag' }])
-    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 6 }])
+    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 7 }])
   })
 
   it('upgrades version 1 without losing cached matches or players', async () => {
@@ -46,7 +46,7 @@ describe.runIf(!!process.versions.electron)('pro SQLite lifecycle', () => {
     await initializeProDatabase(source)
     expect(await source.query('SELECT name FROM PoolPlayers')).toEqual([{ name: 'Keep#Tag' }])
     expect(await source.query('SELECT * FROM PoolResources')).toEqual([])
-    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 6 }])
+    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 7 }])
   })
 
   it('upgrades the notebook database while retaining notes and rolls back version 4 on failure', async () => {
@@ -73,7 +73,7 @@ describe.runIf(!!process.versions.electron)('pro SQLite lifecycle', () => {
     await source.destroy()
     await initializeProDatabase(source)
     expect(await source.query('SELECT key FROM NotebookResources')).toEqual([{ key: 'keep' }])
-    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 6 }])
+    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 7 }])
   })
 
   it('rolls back a failed v5 upgrade and preserves v4 content before retrying', async () => {
@@ -97,7 +97,7 @@ describe.runIf(!!process.versions.electron)('pro SQLite lifecycle', () => {
     await source.destroy()
     await initializeProDatabase(source)
     expect(await source.query('SELECT key FROM NotebookResources')).toEqual([{ key: 'keep' }])
-    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 6 }])
+    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 7 }])
   })
 
   it('rejects a future schema without changing existing data', async () => {
@@ -112,7 +112,12 @@ describe.runIf(!!process.versions.electron)('pro SQLite lifecycle', () => {
   })
   it('upgrades v5 with existing content and rolls back the complete v6 migration on failure', async () => {
     await initializeProDatabase(source)
-    for (const table of ['ExperiencePreferences', 'ExperienceWorkspaces', 'ExperienceScenes'])
+    for (const table of [
+      'ExperiencePreferences',
+      'ExperienceWorkspaces',
+      'ExperienceScenes',
+      'ExperiencePlans'
+    ])
       await source.query(`DROP TABLE ${table}`)
     await source.query('PRAGMA user_version=5')
     await source.query("INSERT INTO PoolPlayers VALUES ('EUW1','player','Keep',1)")
@@ -127,7 +132,7 @@ describe.runIf(!!process.versions.electron)('pro SQLite lifecycle', () => {
     await source.destroy()
     await initializeProDatabase(source)
     expect(await source.query('SELECT name FROM PoolPlayers')).toEqual([{ name: 'Keep' }])
-    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 6 }])
+    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 7 }])
   })
 
   it('rolls back a failed migration and preserves the pre-existing table', async () => {
@@ -141,5 +146,23 @@ describe.runIf(!!process.versions.electron)('pro SQLite lifecycle', () => {
       []
     )
     expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 0 }])
+  })
+  it('upgrades v6 with existing notes and rolls back a failed v7 upgrade without losing them', async () => {
+    await initializeProDatabase(source)
+    await source.query('DROP TABLE ExperiencePlans')
+    await source.query('PRAGMA user_version=6')
+    await source.query("INSERT INTO NotebookResources VALUES ('kept', '{}', 1)")
+    await source.query('CREATE TABLE ExperiencePlans(sentinel TEXT)')
+    await source.query("INSERT INTO ExperiencePlans VALUES ('kept')")
+    await source.destroy()
+    await expect(initializeProDatabase(source)).rejects.toThrow()
+    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 6 }])
+    expect(await source.query('SELECT * FROM ExperiencePlans')).toEqual([{ sentinel: 'kept' }])
+    await source.query('DROP TABLE ExperiencePlans')
+    await source.destroy()
+    await initializeProDatabase(source)
+    expect(await source.query('SELECT key FROM NotebookResources')).toEqual([{ key: 'kept' }])
+    expect(await source.query('SELECT * FROM ExperiencePlans')).toEqual([])
+    expect(await source.query('PRAGMA user_version')).toEqual([{ user_version: 7 }])
   })
 })

@@ -12,6 +12,7 @@
     </div>
     <NScrollbar class="min-h-0 flex-1"
       ><div v-if="active" class="p-6">
+        <FocusGoals v-if="tab === 'training'" class="mb-4" />
         <TrainingPanel v-if="tab === 'training'" /><BatchPanel v-else /></div
     ></NScrollbar>
   </div>
@@ -25,6 +26,7 @@ import TrainingPanel from './TrainingPanel.vue'
 import BatchPanel from './BatchPanel.vue'
 import { z } from 'zod'
 import { useWorkspaceState } from '../../../shared/composables/useWorkspaceState'
+import FocusGoals from './FocusGoals.vue'
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.workshop' }),
   tab = ref<'training' | 'batch'>('training'),
   active = ref(false)

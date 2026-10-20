@@ -3,7 +3,17 @@ import {
   getMapDomain,
   mapToImagePosition
 } from '@renderer-shared/components/match-card/utils/game-map'
-import type { ReviewEvent } from '@shared/pro/review'
+import type { ReviewAnalysis, ReviewEvent } from '@shared/pro/review'
+
+export function eventTeam(event: ReviewEvent, participants: ReviewAnalysis['participants']) {
+  const killer = participants.find((p) => p.id === event.killerId)
+  if (killer) return killer.teamId
+  if ([100, 200].includes(event.killerTeamId ?? 0)) return event.killerTeamId
+  // Building teamId is the destroyed building's owner.
+  if (event.type === 'BUILDING_KILL' && [100, 200].includes(event.teamId ?? 0))
+    return event.teamId === 100 ? 200 : 100
+  return null
+}
 
 export const eventKinds = ['all', 'deaths', 'kills', 'objectives', 'buildings'] as const
 export type EventKind = (typeof eventKinds)[number]
@@ -22,7 +32,9 @@ export function mapEvents(
   participantId: number,
   kind: EventKind,
   from: number,
-  to: number
+  to: number,
+  team: number | null = null,
+  participants: ReviewAnalysis['participants'] = []
 ) {
   if (![11, 12, 21].includes(mapId)) return { points: [], missing: 0 }
   const domain = getMapDomain(mapId as MapId)
@@ -36,6 +48,7 @@ export function mapEvents(
       event.timestamp > to
     )
       return []
+    if (team !== null && eventTeam(event, participants) !== team) return []
     const p = event.position
     if (
       !p ||
