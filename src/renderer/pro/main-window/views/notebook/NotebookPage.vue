@@ -486,11 +486,19 @@ function syncChampion() {
   if (route.name !== NOTEBOOK_ROUTE) return
   const selected = Number(route.query.champion)
   const next = Number.isSafeInteger(selected) && selected > 0 ? selected : null
+  const opponent = Number(route.query.opponent)
+  if (Number.isSafeInteger(opponent) && opponent > 0) {
+    opponentId.value = opponent
+    kind.value = 'matchup'
+    tab.value = 'library'
+    deleted.value = false
+  }
   if (championId.value === next) return
   championId.value = next
   kind.value = null
   search.value = ''
-  opponentId.value = null
+  opponentId.value = Number.isSafeInteger(opponent) && opponent > 0 ? opponent : null
+  if (opponentId.value) kind.value = 'matchup'
   deleted.value = false
   tab.value = 'library'
 }
@@ -688,7 +696,7 @@ api.onChanged(() => {
   if (active.value) void refresh()
 })
 watch(
-  () => [route.query.champion, route.query.search],
+  () => [route.query.champion, route.query.search, route.query.opponent],
   () => {
     syncChampion()
     if (route.name === NOTEBOOK_ROUTE && typeof route.query.search === 'string')

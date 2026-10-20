@@ -14,7 +14,7 @@
         :min="0"
         :max="Math.floor(report.analysis.duration / 1000)"
         :precision="3"
-        :aria-label="t('timeSeconds')"
+        :input-props="{ 'aria-label': t('timeSeconds') }"
         class="w-40!"
       />
       <span class="text-xs">{{ t('timeSeconds') }}</span>
@@ -26,7 +26,7 @@
         :min="15"
         :max="600"
         class="w-32!"
-        :aria-label="tw('windowSeconds')"
+        :input-props="{ 'aria-label': tw('windowSeconds') }"
       />
     </div>
     <div class="flex flex-wrap gap-4 text-sm">
@@ -40,6 +40,14 @@
       <span>{{ t('csChange') }}: {{ delta('cs') }}</span>
       <span>{{ t('goldDiffChange') }}: {{ delta('goldDiff') }}</span>
     </div>
+    <EventMap
+      :report="report"
+      :from="window.from"
+      :to="window.to"
+      :selected-id="eventId"
+      :describe="describe"
+      @select="locateEvent"
+    />
     <ReviewChart
       :reports="[report]"
       :from="window.from"
@@ -142,6 +150,7 @@ import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
 import ReviewChart from './ReviewChart.vue'
+import EventMap from './event-map/EventMap.vue'
 import { toParticipants } from '@shared/data-adapter/match-history/participants'
 import { toBasicInfo } from '@shared/data-adapter/match-history/match-basic'
 import type { ReviewFinding } from '@shared/pro/review/findings'
@@ -197,9 +206,7 @@ function describe(event: ReviewEvent) {
 const eventOptions = computed(() =>
   props.report.analysis.events
     .filter((event) =>
-      event.type === 'CHAMPION_KILL'
-        ? event.victimId === props.report.analysis.participantId
-        : event.type === 'ELITE_MONSTER_KILL' || event.type === 'BUILDING_KILL'
+      ['CHAMPION_KILL', 'ELITE_MONSTER_KILL', 'BUILDING_KILL'].includes(event.type)
     )
     .map((event) => ({
       value: event.id,

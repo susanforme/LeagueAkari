@@ -475,6 +475,22 @@ pro:
       goldDeficit10: 'Gold deficit at 10 minutes'
       deathBeforeObjective: 'Death within 60 seconds before an objective'
   experience:
+    playReminder:
+      enabled: Continuous play reminders
+      games: Games in a session
+      minutes: Total game time (minutes)
+      losses: Consecutive losses
+      disabledThreshold: Set a threshold to 0 to disable it. A reminder appears after a game when any threshold is reached.
+      title: Time for a break?
+      suggestion: Take a short break or review your last game.
+      failed: Could not dismiss the reminder. Please retry.
+      reasons:
+        games_one: 'You have played {{count}} game this session'
+        games_other: 'You have played {{count}} games this session'
+        minutes_one: '{{count}} minute spent in games'
+        minutes_other: '{{count}} minutes spent in games'
+        losses_one: '{{count}} consecutive loss'
+        losses_other: '{{count}} consecutive losses'
     search: Quick search
     searchPlaceholder: Champions, visited players, notebook, reviews or settings
     settings: Settings
@@ -518,3 +534,34 @@ pro:
     shared: Image created
     win: Victory
     loss: Defeat
+
+  matchups:
+    title: Personal matchups
+    refresh: Refresh
+    failed: Could not load matchups. Please retry.
+    empty: No matches with a known lane opponent
+    excluded_one: '{{count}} match has no reliable opponent information'
+    excluded_other: '{{count}} matches have no reliable opponent information'
+    opponent: Opponent
+    gold10: Average gold difference at 10 min
+    cs10: Average CS difference at 10 min
+    against: 'Against {{name}}'
+    notes: Matchup notes
+    review: Open review
+    outcomes:
+      win: Win
+      loss: Loss
+      unknown: Unknown result
+  eventMap:
+    title: Review event map
+    filter: Event type
+    all: All events
+    deaths: My deaths
+    kills: Other kills
+    objectives: Epic monsters
+    buildings: Buildings
+    nearby: Current time window only
+    unsupported: This map is not supported yet
+    missing_one: '{{count}} event has no usable coordinates'
+    missing_other: '{{count}} events have no usable coordinates'
+    empty: No events with coordinates in this range

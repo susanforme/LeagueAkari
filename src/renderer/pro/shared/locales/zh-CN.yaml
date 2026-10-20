@@ -467,6 +467,19 @@ pro:
       goldDeficit10: '10 分钟经济落后'
       deathBeforeObjective: '资源事件前 60 秒死亡'
   experience:
+    playReminder:
+      enabled: 连续游玩提醒
+      games: 连续对局数
+      minutes: 累计游戏时长（分钟）
+      losses: 连败场数
+      disabledThreshold: 设为 0 关闭该条件；任一条件达到后在结算时提醒。
+      title: 休息一下？
+      suggestion: 可以休息片刻，或回顾刚才的对局。
+      failed: 提醒关闭失败，请重试
+      reasons:
+        games: '已连续游玩 {{count}} 场'
+        minutes: '累计游戏 {{count}} 分钟'
+        losses: '已连续 {{count}} 场失利'
     search: 快捷搜索
     searchPlaceholder: 搜索英雄、已访问玩家、手册、复盘或设置
     settings: 设置
@@ -510,3 +523,32 @@ pro:
     shared: 图片已生成
     win: 胜利
     loss: 失败
+
+  matchups:
+    title: 个人对位档案
+    refresh: 刷新
+    failed: 加载失败，请重试
+    empty: 暂无可识别的对位记录
+    excluded: '{{count}} 场缺少可靠对位信息'
+    opponent: 对位英雄
+    gold10: 10 分钟平均经济差
+    cs10: 10 分钟平均补刀差
+    against: '对阵 {{name}}'
+    notes: 对阵心得
+    review: 打开复盘
+    outcomes:
+      win: 胜利
+      loss: 失败
+      unknown: 胜负未知
+  eventMap:
+    title: 复盘事件地图
+    filter: 事件类型
+    all: 全部事件
+    deaths: 本人死亡
+    kills: 其他击杀
+    objectives: 大型野怪
+    buildings: 建筑
+    nearby: 仅看当前时间窗口
+    unsupported: 暂不支持这张地图
+    missing: '{{count}} 个事件没有可用坐标'
+    empty: 当前范围内没有可定位的事件

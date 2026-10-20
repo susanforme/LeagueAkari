@@ -46,6 +46,7 @@
         </div>
       </div>
     </NPopover>
+    <PlayReminder />
     <QuickSearch v-model:show="searchOpen" />
   </div>
 </template>
@@ -63,6 +64,7 @@ import { useExperienceStore } from '../../shared/shards/experience/store'
 import { ChampionPoolRenderer } from '../../shared/shards/champion-pool'
 import QuickSearch from './QuickSearch.vue'
 import SceneMenu from './SceneMenu.vue'
+import PlayReminder from './PlayReminder.vue'
 import { ProgressRenderer } from '../../shared/shards/progress'
 import type { ReviewBatch } from '@shared/pro/progress'
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.experience' })

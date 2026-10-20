@@ -14,11 +14,16 @@ import {
   type ResourceLocale,
   type SyncRequest
 } from '@shared/pro/champion-pool'
+import type { MatchupQuery, MatchupResult } from '@shared/pro/champion-pool/matchups'
 
 @Shard(ChampionPoolRenderer.id)
 export class ChampionPoolRenderer {
   static id = 'pro-champion-pool-renderer'
   constructor(@Dep(AkariIpcRenderer) private readonly _ipc: AkariIpcRenderer) {}
+
+  matchups(query: MatchupQuery) {
+    return this._ipc.call<MatchupResult>(CHAMPION_POOL_NAMESPACE, 'matchups', query)
+  }
 
   resources(locale: ResourceLocale) {
     return this._ipc.call<ResourceCatalog>(CHAMPION_POOL_NAMESPACE, 'getResources', locale)

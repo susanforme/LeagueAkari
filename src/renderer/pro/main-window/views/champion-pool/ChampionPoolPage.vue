@@ -126,6 +126,7 @@
               :champion="detail"
               :player="player"
               :matches="matches"
+              :query="detailQuery"
               :loading="loading"
               v-model:page="matchPage"
               v-model:page-size="matchPageSize"
@@ -216,6 +217,7 @@ const league = useLeagueClientStore()
 const router = useRouter()
 const {
   api,
+  detailQuery,
   playerTabs,
   players,
   identity,

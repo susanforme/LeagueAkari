@@ -16,6 +16,9 @@ import type { ExperienceController } from './experience-controller'
 
 export function registerExperienceHandlers(ipc: AkariIpcMain, controller: ExperienceController) {
   const keySchema = z.string().min(1).max(500)
+  ipc.onCall(EXPERIENCE_NAMESPACE, 'dismissReminder', (_, id) =>
+    controller.dismissReminder(keySchema.parse(id))
+  )
   ipc.onCall(EXPERIENCE_NAMESPACE, 'status', () => controller.status())
   ipc.onCall(EXPERIENCE_NAMESPACE, 'search', (_, input) => {
     const value = z

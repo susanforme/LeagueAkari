@@ -3,6 +3,7 @@ import { toBasicInfo } from '@shared/data-adapter/match-history/match-basic'
 import { toParticipants } from '@shared/data-adapter/match-history/participants'
 import type { LcuOrSgpGameDetails, LcuOrSgpGameSummary } from '@shared/data-adapter/wrapper'
 import { REVIEW_VERSION, type ReviewAnalysis, pointAt } from '@shared/pro/review'
+import { findOpponent } from '@shared/pro/review/opponent'
 import { z } from 'zod'
 
 import { normalizeMatch } from '../champion-pool/normalization'
@@ -67,15 +68,7 @@ export function analyzeMatch(
     throw new Error('Ambiguous match participants')
   const player = players[0]
   const supported = basic.mapId === 11 && basic.gameMode === 'CLASSIC'
-  const hasPosition =
-    supported && ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY'].includes(player.position ?? '')
-  const enemies = participants.filter(
-    (p) => p.teamId !== player.teamId && p.position === player.position
-  )
-  const allies = participants.filter(
-    (p) => p.teamId === player.teamId && p.position === player.position
-  )
-  const opponent = hasPosition && allies.length === 1 && enemies.length === 1 ? enemies[0] : null
+  const opponent = findOpponent(basic, participants, puuid)
   if (details && (details.gameId !== summary.gameId || details.source !== summary.source))
     throw new Error('Timeline does not match summary')
   if (

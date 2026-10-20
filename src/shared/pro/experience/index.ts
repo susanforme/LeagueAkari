@@ -24,7 +24,25 @@ export const workspaceSchema = z
   })
   .refine((value) => JSON.stringify(value).length <= 32_000)
 export type Workspace = z.infer<typeof workspaceSchema>
-export const preferencesSchema = z.object({ restore: z.boolean(), archive: z.boolean() })
+export const reminderSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  games: z.number().int().min(0).max(100).default(5),
+  minutes: z.number().int().min(0).max(1440).default(120),
+  losses: z.number().int().min(0).max(100).default(3)
+})
+export const preferencesSchema = z.object({
+  restore: z.boolean(),
+  archive: z.boolean(),
+  reminder: reminderSettingsSchema.prefault({})
+})
+export type ReminderSettings = z.infer<typeof reminderSettingsSchema>
+export interface PlayReminder {
+  id: string
+  games: number
+  minutes: number
+  losses: number
+  reasons: ('games' | 'minutes' | 'losses')[]
+}
 export type ExperiencePreferences = z.infer<typeof preferencesSchema>
 export const sceneValuesSchema = z.object({
   autoAccept: z.boolean(),
@@ -44,6 +62,7 @@ export interface ExperienceStatus {
   account: z.infer<typeof playerSchema> | null
   accountKey: string
   preferences: ExperiencePreferences
+  reminder: PlayReminder | null
   scene: string | null
   values: SceneValues
 }

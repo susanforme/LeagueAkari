@@ -6,6 +6,7 @@ import {
   resourceLocaleSchema,
   syncSchema
 } from '@shared/pro/champion-pool'
+import { matchupQuerySchema } from '@shared/pro/champion-pool/matchups'
 import { z } from 'zod'
 
 import type { ChampionPoolController } from './champion-pool-controller'
@@ -25,6 +26,9 @@ export function registerChampionPoolHandlers(
   ipc.onCall(CHAMPION_POOL_NAMESPACE, 'listPlayers', () => controller.players())
   ipc.onCall(CHAMPION_POOL_NAMESPACE, 'query', (_, request) =>
     controller.query(querySchema.parse(request))
+  )
+  ipc.onCall(CHAMPION_POOL_NAMESPACE, 'matchups', (_, request) =>
+    controller.matchups(matchupQuerySchema.parse(request))
   )
   ipc.onCall(CHAMPION_POOL_NAMESPACE, 'queryMatches', (_, request) =>
     controller.matches(matchQuerySchema.parse(request))

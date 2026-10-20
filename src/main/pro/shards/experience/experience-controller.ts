@@ -9,6 +9,7 @@ import {
   type CachedGame,
   type ExperiencePreferences,
   type ExperienceStatus,
+  type PlayReminder,
   type Scene,
   type SceneValues,
   type SocialSummary,
@@ -17,9 +18,11 @@ import {
   sceneSchema,
   workspaceSchema
 } from '@shared/pro/experience'
+import { playReminder } from '@shared/pro/experience/play-reminder'
 import { partnerSummary, sessionSummary } from '@shared/pro/experience/summary'
 import type { ProfileSnapshot } from '@shared/pro/profile'
 import { reaction } from 'mobx'
+import type { z } from 'zod'
 
 import type { ChampionPoolMain } from '../champion-pool'
 import type { ProStorageMain } from '../storage'
@@ -42,7 +45,13 @@ const fields = {
 } as const
 
 export class ExperienceController {
-  private _preferences: ExperiencePreferences = { restore: true, archive: true }
+  private _preferences: ExperiencePreferences = preferencesSchema.parse({
+    restore: true,
+    archive: true
+  })
+  private _reminder: PlayReminder | null = null
+  private _lastReminder = ''
+  private _sessionGeneration = 0
   private _lastAccount = 'offline'
   private _timer: ReturnType<typeof setTimeout> | undefined
   private _disposers: (() => void)[] = []
@@ -72,8 +81,13 @@ export class ExperienceController {
     this._lastAccount = last?.accountKey ?? 'offline'
     this._disposers.push(
       reaction(
-        () => JSON.stringify([this.identity(), this._context.sgp.state.isTokenReady]),
-        () => {
+        () => [JSON.stringify(this.identity()), this._context.sgp.state.isTokenReady] as const,
+        (current, previous) => {
+          if (!previous || current[0] !== previous[0]) {
+            this._sessionGeneration++
+            this._reminder = null
+            this._expectedGame = null
+          }
           const identity = this.identity()
           if (identity) {
             const key = JSON.stringify([identity.serverId, identity.puuid])
@@ -91,6 +105,8 @@ export class ExperienceController {
     )
     this._disposers.push(
       this._context.leagueClient.events.on('/lol-gameflow/v1/gameflow-phase', (event) => {
+        if (!['EndOfGame', 'PreEndOfGame', 'Lobby', 'None'].includes(event.data))
+          this._reminder = null
         if (event.data === 'EndOfGame') {
           this._expectedGame =
             this._context.leagueClient.data.gameflow.session?.gameData.gameId ?? null
@@ -102,7 +118,7 @@ export class ExperienceController {
   }
   private _schedule() {
     clearTimeout(this._timer)
-    if (!this.identity() || !this._preferences.archive || this._disposed) return
+    if (!this.identity() || !this._shouldArchive() || this._disposed) return
     this._timer = setTimeout(
       () => {
         void this.archive().catch(() => {})
@@ -110,16 +126,31 @@ export class ExperienceController {
       this._attempt ? 15_000 : 5000
     )
   }
+  private _shouldArchive() {
+    return (
+      this._preferences.archive ||
+      (this._preferences.reminder.enabled && this._expectedGame !== null)
+    )
+  }
+  dismissReminder(id: string) {
+    if (this._reminder?.id === id) this._reminder = null
+  }
   async archive() {
     if (this._archiveTask) return this._archiveTask
     const player = this.identity()
-    if (!player || !this._preferences.archive || this._disposed) return
+    if (!player || !this._shouldArchive() || this._disposed) return
+    const generation = this._sessionGeneration
+    const expectedGame = this._expectedGame
+    const isCurrent = () =>
+      generation === this._sessionGeneration &&
+      !this._disposed &&
+      expectedGame === this._expectedGame
     const task = (async () => {
       const preferred = await this._context.settings.getSetting(
         'player-tabs-renderer',
         'matchHistoryUseSgpApi'
       )
-      if (JSON.stringify(player) !== JSON.stringify(this.identity())) return
+      if (!isCurrent()) return
       const me = this._context.leagueClient.data.summoner.me!
       await this._context.pool.archive({
         ...player,
@@ -127,24 +158,52 @@ export class ExperienceController {
         count: 200,
         preferredSource: preferred === false ? 'lcu' : 'sgp'
       })
-      if (this._expectedGame && !(await this._context.pool.match(player, this._expectedGame))) {
+      if (!isCurrent()) return
+      const available = !expectedGame || (await this._context.pool.match(player, expectedGame))
+      if (!isCurrent()) return
+      if (!available) {
         this._attempt++
         if (this._attempt < 3) this._schedule()
         else throw new Error('Latest match is not available yet')
       } else {
+        if (expectedGame && this._preferences.reminder.enabled) {
+          const rows: { projection: string; summary: string }[] = await this._database.query(
+            'SELECT projection,summary FROM PoolMatches WHERE serverId=? AND puuid=? ORDER BY startedAt DESC,gameId DESC LIMIT 200',
+            [player.serverId, player.puuid]
+          )
+          const value = playReminder(
+            rows.map((row) => ({
+              match: JSON.parse(row.projection),
+              summary: JSON.parse(row.summary)
+            })),
+            this._preferences.reminder,
+            expectedGame,
+            Date.now()
+          )
+          const id = JSON.stringify([player.serverId, player.puuid, expectedGame])
+          if (!isCurrent()) return
+          if (value && id !== this._lastReminder) {
+            this._lastReminder = id
+            this._reminder = { id, ...value }
+          }
+        }
         this._expectedGame = null
         this._attempt = 0
       }
       this.archiveError = false
     })()
       .catch((error) => {
-        if (JSON.stringify(player) === JSON.stringify(this.identity())) this.archiveError = true
+        if (isCurrent()) this.archiveError = true
         this._context.logger.warn('Automatic archive incomplete; cached matches retained')
         throw error
       })
       .finally(() => {
         this._archiveTask = null
-        if (JSON.stringify(player) !== JSON.stringify(this.identity())) this._schedule()
+        if (
+          generation !== this._sessionGeneration ||
+          (expectedGame !== this._expectedGame && this._expectedGame !== null)
+        )
+          this._schedule()
       })
     this._archiveTask = task
     return task
@@ -167,6 +226,13 @@ export class ExperienceController {
       account: this.identity(),
       accountKey: this._lastAccount,
       preferences: this._preferences,
+      reminder:
+        this.identity() &&
+        ['EndOfGame', 'PreEndOfGame', 'Lobby', 'None'].includes(
+          this._context.leagueClient.data.gameflow?.phase ?? ''
+        )
+          ? this._reminder
+          : null,
       values,
       scene:
         scenes.find((scene) =>
@@ -178,13 +244,15 @@ export class ExperienceController {
       archiving: !!this._archiveTask
     }
   }
-  async preferences(value: ExperiencePreferences) {
+  async preferences(input: z.input<typeof preferencesSchema>) {
+    const value = preferencesSchema.parse(input)
     await this._database.query(
       'INSERT INTO ExperiencePreferences VALUES (1,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload',
       [JSON.stringify(value)]
     )
     this._preferences = value
-    if (value.archive) this._schedule()
+    if (!value.reminder.enabled) this._reminder = null
+    if (this._shouldArchive()) this._schedule()
   }
   async workspace(accountKey: string): Promise<Workspace | null> {
     if (!this._preferences.restore) return null

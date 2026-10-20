@@ -68,6 +68,12 @@ export function useChampionPool() {
     })
   })
 
+  const detailQuery = computed(() =>
+    query.value?.success && query.value.data.championId
+      ? { ...query.value.data, championId: query.value.data.championId }
+      : null
+  )
+
   async function load() {
     const request = ++generation
     loading.value = false
@@ -255,6 +261,7 @@ export function useChampionPool() {
 
   return {
     api,
+    detailQuery,
     playerTabs,
     players,
     identity,

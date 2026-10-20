@@ -27,6 +27,7 @@
         />
       </div>
     </div>
+    <MatchupPanel v-if="query" :query="query" />
     <div class="flex items-center justify-between gap-3">
       <span class="font-bold">{{ t('matchHistory') }}</span>
       <NPagination
@@ -109,8 +110,11 @@ import { importedBuild } from '../notebook/import-draft'
 
 import { ChampionPoolRenderer } from '../../../shared/shards/champion-pool'
 import MetricValue from './MetricValue.vue'
+import MatchupPanel from './MatchupPanel.vue'
+import type { PoolMatchQuery } from '@shared/pro/champion-pool'
 
 const props = defineProps<{
+  query: PoolMatchQuery | null
   champion: ChampionStats
   player: PlayerIdentity
   matches: PoolMatchPage | null

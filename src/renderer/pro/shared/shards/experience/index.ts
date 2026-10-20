@@ -16,6 +16,9 @@ import {
 export class ExperienceRenderer {
   static id = 'pro-experience-renderer'
   constructor(@Dep(AkariIpcRenderer) private readonly _ipc: AkariIpcRenderer) {}
+  dismissReminder(id: string) {
+    return this._ipc.call<void>(EXPERIENCE_NAMESPACE, 'dismissReminder', id)
+  }
   status() {
     return this._ipc.call<ExperienceStatus & { archiveError: boolean; archiving: boolean }>(
       EXPERIENCE_NAMESPACE,

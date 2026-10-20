@@ -2,6 +2,8 @@ import { observable, runInAction } from 'mobx'
 import { DataSource } from 'typeorm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { normalizeMatch } from '../champion-pool/normalization'
+import { sgpSummary } from '../champion-pool/test-fixtures'
 import { initializeProDatabase } from '../storage/database-lifecycle'
 import { type ExperienceContext, ExperienceController } from './experience-controller'
 
@@ -128,4 +130,95 @@ describe.runIf(!!process.versions.electron)('experience persistence and presets'
     await vi.advanceTimersByTimeAsync(30000)
     expect(archive).toHaveBeenCalledTimes(3)
   })
+  async function enableReminders() {
+    await controller.preferences({
+      restore: true,
+      archive: false,
+      reminder: { enabled: true, games: 1, minutes: 0, losses: 0 }
+    })
+    await controller.dispose()
+    vi.useFakeTimers()
+    const listeners = new Map<string, (event: { data: string }) => void>()
+    const league = observable({
+      state: { isConnected: true },
+      data: {
+        summoner: { me: { puuid: 'player', gameName: 'Name', tagLine: 'Tag' } },
+        gameflow: { phase: 'EndOfGame', session: { gameData: { gameId: 123 } } }
+      },
+      events: {
+        on: (name: string, fn: (event: { data: string }) => void) => {
+          listeners.set(name, fn)
+          return () => listeners.delete(name)
+        }
+      }
+    })
+    context.leagueClient = league as unknown as ExperienceContext['leagueClient']
+    const summary = sgpSummary(123)
+    summary.data.json.gameCreation = Date.now() - 1200000
+    await database.query('INSERT INTO PoolMatches VALUES (?,?,?,?,?,?)', [
+      'EUW1',
+      'player',
+      123,
+      summary.data.json.gameCreation,
+      JSON.stringify(normalizeMatch(summary, 'player')),
+      JSON.stringify(summary)
+    ])
+    context.pool = {
+      archive: vi.fn().mockResolvedValue(undefined),
+      match: vi.fn().mockResolvedValue(summary)
+    } as unknown as ExperienceContext['pool']
+    controller = new ExperienceController(context)
+    await controller.start()
+    return {
+      league,
+      settle: () => listeners.get('/lol-gameflow/v1/gameflow-phase')!({ data: 'EndOfGame' })
+    }
+  }
+  it('persists thresholds, notifies only after settlement, and dismisses without repeat delivery', async () => {
+    const { settle, league } = await enableReminders()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(context.pool.archive).not.toHaveBeenCalled()
+    expect((await controller.status()).preferences.reminder.games).toBe(1)
+    settle()
+    await vi.advanceTimersByTimeAsync(5000)
+    const reminder = (await controller.status()).reminder!
+    expect(reminder).toMatchObject({ games: 1, reasons: ['games'] })
+    runInAction(() => {
+      league.data.gameflow.phase = 'InProgress'
+    })
+    expect((await controller.status()).reminder).toBeNull()
+    runInAction(() => {
+      league.data.gameflow.phase = 'EndOfGame'
+    })
+    controller.dismissReminder(reminder.id)
+    settle()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect((await controller.status()).reminder).toBeNull()
+  })
+  it.each(['archive', 'match'] as const)(
+    'drops an in-flight %s after reconnecting to the same account',
+    async (operation) => {
+      const { settle, league } = await enableReminders()
+      let finish!: () => void
+      const pending = new Promise<null>((resolve) => {
+        finish = () => resolve(null)
+      })
+      if (operation === 'archive')
+        vi.mocked(context.pool.archive).mockImplementationOnce(async () => {
+          await pending
+        })
+      else vi.mocked(context.pool.match).mockReturnValueOnce(pending)
+      settle()
+      await vi.advanceTimersByTimeAsync(5000)
+      runInAction(() => {
+        league.state.isConnected = false
+      })
+      runInAction(() => {
+        league.state.isConnected = true
+      })
+      finish()
+      await vi.advanceTimersByTimeAsync(1)
+      expect((await controller.status()).reminder).toBeNull()
+    }
+  )
 })

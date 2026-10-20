@@ -1,3 +1,4 @@
+import { preferencesSchema } from '@shared/pro/experience'
 import { createPinia, setActivePinia } from 'pinia'
 import { expect, it } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
@@ -12,7 +13,8 @@ it('restores account-specific filters, resets absent values, and does not save d
   store.status = {
     account: null,
     accountKey: 'first',
-    preferences: { restore: true, archive: true },
+    preferences: preferencesSchema.parse({ restore: true, archive: true }),
+    reminder: null,
     values: {
       autoAccept: false,
       autoHonor: false,

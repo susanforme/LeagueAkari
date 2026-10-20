@@ -12,10 +12,12 @@ import {
   type SyncRequest,
   type SyncStatus
 } from '@shared/pro/champion-pool'
+import type { MatchupQuery } from '@shared/pro/champion-pool/matchups'
 
 import { aggregatePool } from './aggregation'
 import type { ChampionPoolContext } from './context'
 import { MatchHistoryLoader } from './match-history-loader'
+import { loadMatchups } from './matchup-loader'
 import { normalizeMatch } from './normalization'
 
 export class ChampionPoolController {
@@ -63,6 +65,10 @@ export class ChampionPoolController {
       })
     }
     return players
+  }
+
+  matchups(query: MatchupQuery) {
+    return loadMatchups(this._context.storage.dataSource, query)
   }
 
   async query(query: PoolQuery) {
