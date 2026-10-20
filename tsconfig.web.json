@@ -1,6 +1,8 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
   "include": [
+    "src/renderer/pro/**/*",
+    "src/renderer/pro/**/*.vue",
     "src/renderer/env.d.ts",
     "src/renderer/src-main-window/**/*",
     "src/renderer/src-main-window/**/*.vue",
@@ -23,6 +25,7 @@
     "composite": true,
     "types": ["@modyfi/vite-plugin-yaml/modules"],
     "paths": {
+      "@renderer-pro/*": ["./src/renderer/pro/*"],
       "@main-window/*": ["./src/renderer/src-main-window/*"],
       "@aux-window/*": ["./src/renderer/src-aux-window/*"],
       "@opgg-window/*": ["./src/renderer/src-opgg-window/*"],

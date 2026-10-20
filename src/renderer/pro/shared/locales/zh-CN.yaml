@@ -1,0 +1,512 @@
+pro:
+  championPool:
+    title: 英雄池
+    player: 玩家
+    selectPlayer: 选择玩家
+    noPlayers: 连接客户端或在战绩页打开玩家
+    queues: 队列
+    allQueues: 全部队列
+    position: 位置
+    allPositions: 全部位置
+    unknownPosition: 未知位置
+    champion: 英雄
+    allChampions: 全部英雄
+    unknownChampion: 未知英雄
+    patch: 版本
+    dateRange: 日期范围
+    allTime: 全部时间
+    last30: 最近 30 天
+    last90: 最近 90 天
+    reset: 重置
+    sync: 同步战绩
+    cancel: 取消同步
+    syncCount: 同步数量
+    syncProgress: '已缓存 {{processed}} / {{requested}} 场'
+    syncCancelled: 同步已取消，已完成的数据保留
+    syncScope: 同步当前客户端服务器的战绩；离线时可查看已缓存的数据
+    truncated: 仅分析最近 10,000 场缓存，筛选结果不代表完整历史
+    usage: 常用英雄
+    games: 场次
+    winRate: 胜率
+    kda: KDA
+    csPerMin: 补刀/分
+    damageShare: 伤害占比
+    metricSamples: '有效样本：{{count}}'
+    missing: 缺失数据
+    zeroDenominator: 零分母
+    unknownOutcome: 未知胜负
+    kdaRule: 单场 KDA 的平均值，零死亡场次不参与该指标
+    empty: 没有符合条件的缓存战绩
+    matchHistory: 对局战绩
+    detailsUnavailable: 暂时无法加载额外对局数据，请确认客户端连接和数据源可用后重试
+    back: 返回英雄池
+    openHistory: 打开战绩页
+    unavailable: 定制数据库不可用，原数据已保留
+    newerVersion: 定制数据库版本高于当前程序，请使用较新版本
+    loadFailed: 加载英雄池失败，请重试
+    retry: 重试
+    disconnected: 请先连接英雄联盟客户端
+    differentServer: 只能同步当前客户端所在服务器的玩家
+    waitingToken: 等待 SGP 认证就绪
+    busy: 已有同步任务正在运行
+    syncFailed: 同步失败，已缓存的数据保留；请检查客户端连接和数据源可用性后重试
+    invalidFilter: 请检查版本与日期范围
+    resourcesUnavailable: 英雄资料暂时不可用，请连接客户端或检查网络后重试
+  notebook:
+    chooseChampion: 选择英雄，打开专属手册
+    backToChampions: 全部英雄
+    championSearch: 搜索英雄名称、拼音或 ID
+    recordedOnly: 仅看已记录
+    sort: 英雄排序
+    sorts:
+      recent: 最近更新
+      name: 英雄名称
+      count: 笔记最多
+    entryCount: '{{count}} 条笔记'
+    trashCount: '{{count}} 条已回收'
+    updated: '更新于 {{date}}'
+    startHandbook: 开始记录
+    noChampions: 暂无符合条件的英雄
+    noEntriesMatch: 没有符合筛选条件的笔记
+    trashEmpty: 这个英雄的回收站为空
+    clearFilters: 清除筛选
+    useTemplate: 使用写作模板
+    templates:
+      note: |-
+        核心思路：
+
+        对线与发育：
+
+        团战职责：
+
+        下次练习目标：
+      combo: |-
+        适用场景：
+
+        释放时机与要点：
+
+        常见失误：
+      matchup: |-
+        对线目标：
+
+        关键技能与冷却窗口：
+
+        换血与兵线处理：
+
+        强势期与注意事项：
+      build: |-
+        适用阵容与局势：
+
+        核心装备思路：
+
+        替代装备与切换条件：
+
+        加点说明：
+    title: 英雄手册
+    library: 我的手册
+    quick: 赛前速查
+    champion: 选择英雄
+    search: 搜索标题或正文
+    allKinds: 全部类型
+    create: 新建{{kind}}
+    newEntry: 新建条目
+    entryTitle: 标题
+    body: 心得与说明
+    against: 对阵
+    opponent: 对手英雄
+    position: 位置
+    pinned: 已置顶
+    pin: 置顶
+    unpin: 取消置顶
+    edit: 编辑
+    delete: 移入回收站
+    trash: 回收站
+    recover: 恢复条目
+    history: 历史版本
+    revision: '修订 {{n}}'
+    restore: 恢复此版本
+    copy: 复制笔记
+    copyTitle: '{{title}}（副本）'
+    save: 保存
+    saveCopy: 另存为新条目
+    cancel: 取消
+    refresh: 刷新
+    retry: 重试
+    empty: 还没有这类笔记，记录第一条心得吧
+    quickEmpty: 当前英雄及公开对手暂无匹配内容
+    loadFailed: 加载失败，请刷新重试
+    saveFailed: 保存失败，内容已保留，请重试
+    conflict: 内容已在别处更新，请重新打开最新版本，或将当前内容另存为新条目
+    invalid: 请填写标题、对阵英雄、连招实体及装备分组，检查数量和内容长度
+    resourcesUnavailable: 部分游戏资源暂不可用，已保存的内容仍可查看
+    waitingSelection: 连接客户端并在选人阶段选择英雄后可查看
+    publicOpponents: 全部公开对手
+    unsaved: 有未保存的内容
+    discardQuestion: 放弃当前编辑内容？
+    discard: 放弃修改
+    keepEditing: 继续编辑
+    action: 连招动作
+    stepLabel: 步骤说明，如 Q2
+    addStep: 添加步骤
+    moveUp: 上移
+    moveDown: 下移
+    remove: 移除
+    item: 选择装备
+    spell: 选择召唤师技能
+    addItem: 添加装备
+    quantity: 数量
+    groupName: 装备分组名称
+    groupDefault: 新分组
+    addGroup: 添加装备分组
+    skillOrder: 加点顺序
+    removeLevel: '移除第 {{level}} 次加点'
+    undo: 撤销末次加点
+    fromMatch: 从此对局创建方案
+    importReady: 有待编辑的对局方案
+    openDraft: 打开草稿
+    matchBuildTitle: '对局 {{id}} 方案'
+    finalItems: 结算装备
+    importExplanation: 装备来自结算栏，不代表购买顺序。加点仅在时间线可用时填入；请检查后保存。
+    matchSource: '来源对局：{{id}}'
+    kinds:
+      note: 笔记
+      combo: 连招
+      matchup: 对阵经验
+      build: 出装与加点
+    actions:
+      skill: 英雄技能
+      attack: 普攻
+      move: 移动
+      spell: 召唤师技能
+      item: 装备
+      text: 文字动作
+    positions:
+      TOP: 上路
+      JUNGLE: 打野
+      MIDDLE: 中路
+      BOTTOM: 下路
+      UTILITY: 辅助
+  review:
+    findings:
+      title: 本局关注点
+      goldDropTitle: 经济差下降阶段
+      goldDrop: '这段时间，对位经济差下降了 {{value}} 金币。'
+      farmTitle: 发育低于近期水平
+      farm: '该时间点补刀 {{value}}，近期同类对局中位数为 {{baseline}}。'
+      farmSummary: '本局每分钟补刀 {{value}}，近期同类对局中位数为 {{baseline}}。'
+      goldDeficitTitle: 对线经济落后
+      goldDeficit: '该时间点落后同位置对手 {{value}} 金币。'
+      deathBeforeObjectiveTitle: 死亡附近的资源事件
+      deathBeforeObjective: '{{time}} 阵亡后的 60 秒内，记录到建筑或大型野怪击杀。'
+      deathsTitle: 死亡频率高于近期水平
+      deaths: '本局每 10 分钟死亡 {{value}} 次，近期同类对局中位数为 {{baseline}} 次。'
+      sampleScope: '同英雄、位置、队列和版本 · {{count}} 场历史样本'
+      occurrences: '其中 {{count}} 场出现同类情况'
+      compare: 对照补刀较好的一局
+    title: 对局复盘
+    open: 复盘此局
+    library: 报告列表
+    libraryHelp: 从英雄池的对局列表生成报告。报告保留当时的数据，保存后可离线查看；勾选两份报告可并排对比。
+    empty: 暂无复盘报告
+    refresh: 重新获取时间线
+    retry: 重试
+    loadFailed: 无法读取报告或获取时间线，请检查客户端与数据源；已保存的报告不会被删除。
+    compare: 两场对比
+    compareSelected: '对比选中的报告（{{count}}/2）'
+    selectForCompare: '选择对局 {{id}} 参与对比'
+    compareHelp: 曲线按游戏时间对齐；每场只显示实际获取的时间点，缺失值不补零。装备为结算栏装备。
+    differentContext: 两份报告的玩家、英雄、队列、位置、版本或分析版本不同；差异不能直接归因于个人表现。
+    savedAt: '保存于 {{time}}'
+    kda: 击杀 / 死亡 / 助攻
+    duration: 时长
+    csPerMin: 每分钟补刀
+    checkpoint: 目标 / 实际采样
+    checkpointHelp: 取目标时刻之前一分钟内的最近快照；超过对局时长或缺少数据时显示「—」。补刀包含野怪。
+    gold: 总经济
+    cs: 补刀
+    xp: 经验
+    goldDiff: 对位经济差
+    csDiff: 对位补刀差
+    finalItems: 结算装备
+    timelineMissing: 时间线尚未获取，暂时只能查看结算数据；连接客户端后可重新获取。
+    opponentUnknown: 无法唯一确定同位置对手，对位差值留空。
+    unsupportedMode: 本局不是峡谷经典模式，不提供对位判断；原始事件仍可查看。
+    eventsTitle: 事件与笔记
+    matchDetails: 对局详情
+    selectEvent: 定位自己的死亡或资源事件
+    timeSeconds: 游戏时间（秒）
+    eventHelp: 显示所选时刻前后一分钟的事件与快照。资源事件表示击杀归属，不代表完整的争夺过程；时间接近不代表因果关系。
+    observedFrames: 实际采样
+    goldChange: 期间经济增长
+    csChange: 期间补刀增长
+    goldDiffChange: 对位经济差变化
+    evidence: 证据编号
+    noEvents: 该时间窗口没有已记录的事件
+    unknown: 未知 / 环境
+    killEvent: '{{killer}} 击杀 {{victim}}'
+    building: 建筑摧毁
+    notes: 时间点心得
+    notePlaceholder: 记录当时的判断、失误或下次要尝试的做法……
+    saveNote: 保存到英雄手册
+    handbook: 查看英雄手册
+    saveFailed: 笔记保存或读取失败，输入内容已保留，请重试。
+    noteTitle: '对局 {{id}} · {{time}}'
+    locateNote: '返回复盘 {{time}}'
+    discardTitle: 尚有未保存的复盘心得
+    discardText: 离开会丢失当前输入，确定继续吗？
+    leave: 离开
+    stay: 继续编辑
+    objectives:
+      DRAGON: 巨龙
+      BARON_NASHOR: 纳什男爵
+      RIFTHERALD: 峡谷先锋
+      HORDE: 虚空巢虫
+      ATAKHAN: 厄塔汗
+    events:
+      ITEM_PURCHASED: 购买装备
+      ITEM_SOLD: 出售装备
+      ITEM_UNDO: 撤销装备操作
+  profile:
+    activity:
+      heatmap: 近 30 天对局日历
+      heatmapHelp: 颜色越深，对局越多。悬停或选择日期查看详情。
+      noDailyRecords: 当天没有已同步记录。
+      dailyGames: '{{count}} 场对局'
+      legend: 每日对局数
+      less: 少
+      more: 多
+      levels:
+        '0': 无已同步记录
+        '1': 1–2 场
+        '3': 3–5 场
+        '6': 6–9 场
+        '10': 10 场及以上
+      title: 近 30 天 · 活动概览
+      games: 对局数
+      activeDays: 活跃天数
+      duration: 游戏时长
+      winRate: 胜率
+      period: 统计周期
+      recentWeek: 最近 7 天
+      previousWeek: 此前 7 天
+      change: 较此前 7 天
+      results: '{{wins}} 胜 / {{losses}} 负'
+      unknownResults: '{{count}} 场结果未知'
+      durationSamples: '{{count}} 场有时长记录'
+      hours: '{{value}} 小时'
+      minutes: '{{value}} 分钟'
+      percentagePoints: '{{value}} 个百分点'
+      empty: 近 30 天暂无已同步对局，可前往英雄池同步战绩。
+      truncated: 当前仅统计最近 10,000 场，结果可能不完整。
+      openHistory: 查看战绩
+      openPool: 前往英雄池
+    trendTitle: 段位与胜点变化
+    leaguePoints: 胜点
+    change: 较上次记录
+    recordOrder: 记录顺序（等间距）
+    trendHelp: 曲线包含所选赛季和队列的全部记录；悬停或点击查看详情，也可点击表格时间。连线仅连接观察记录，不能视为单场加减分；晋降段时 LP 可能重置，未定级和定级中不连线。
+    unknownSeason: 赛季未知
+    unknownSeasonHelp: 这些记录没有赛季编号，仅显示独立记录点，不跨记录计算变化，也不猜测所属赛季。
+    noSeasonRecords: 此账号在所选赛季和队列下暂无记录
+    noRankedPoints: 暂无已完成定级的记录；每次快照仍可在下方表格查看
+    title: 个人主页
+    capture: 记录当前账号段位
+    refresh: 刷新本地记录
+    failed: 本次读取或记录失败，之前保存的段位历史仍会保留。
+    selectPlayer: 选择已记录的账号
+    level: '{{level}} 级'
+    observedAt: '最近记录：{{time}}'
+    history: 段位历史快照
+    time: 记录时间
+    season: 赛季编号
+    rank: 段位
+    winsLosses: 胜 / 负
+    reason: 记录来源
+    provisional: 定级中
+    unranked: 未定级
+    empty: 连接客户端后开始记录个人段位历史
+    reasons:
+      connected: 连接账号
+      rankedUpdate: 段位更新
+      endGame: 对局结算
+      manual: 手动记录
+  workshop:
+    reviewStates:
+      all: '全部复核状态'
+      unmarked: '未标注'
+      needsReview: '待复核'
+      confirmed: '已确认'
+    targetPatch: '目标版本，如 26.20'
+    patchReview: '版本复核'
+    confirmPatch: '确认仍适用'
+    tags: '标签'
+    awaitingConfirmation: '等待客户端确认，请再次应用以核对结果'
+    importAdded_one: '新增 {{count}} 条'
+    importAdded_other: '新增 {{count}} 条'
+    importDuplicates_one: '跳过重复 {{count}} 条'
+    importDuplicates_other: '跳过重复 {{count}} 条'
+    importMissingLinks_one: '缺失关联 {{count}} 个'
+    importMissingLinks_other: '缺失关联 {{count}} 个'
+    settingsTab: 'Pro'
+    notebookData: '英雄手册'
+    exportScope: '导出范围'
+    allHeroes: '全部英雄'
+    notebookTransfer: '手册导入与导出'
+    clientBuild: '客户端装备方案'
+    selectBuild: '选择方案'
+    proData: '全部定制数据'
+    backupRestore: '备份与恢复'
+    restoreFailed: '恢复失败，当前数据未被替换'
+    restoreApplied: '恢复已完成'
+    restoreScheduled: '已安排下次启动恢复'
+    title: '训练中心'
+    training: '训练目标'
+    batch: '批量复盘'
+    data: '数据管理'
+    patch: '已核对版本，如 26.20'
+    rift: '召唤师峡谷'
+    aram: '嚎哭深渊'
+    map: '地图'
+    links: '关联手册条目'
+    export: '导出手册'
+    import: '导入手册'
+    failed: '操作失败，请重试'
+    conflict: '内容已变化，请刷新后重试'
+    importCounts: '新增 {{added}} 条，跳过重复 {{duplicates}} 条，缺失关联 {{links}} 个'
+    replace: '替换现有条目'
+    confirmImport: '导入（未选择替换的保留为新条目）'
+    reviewed: '已核对 {{patch}}'
+    addPractice: '加入练习'
+    exportBuild: '导出装备方案'
+    applyBuild: '应用到客户端'
+    autoBuild: '选用英雄时同步此方案'
+    createCopy: '创建副本'
+    overwrite: '覆盖此方案'
+    overwriteQuestion: '客户端中的此方案已修改，确认覆盖？其他方案不变。'
+    cancel: '取消'
+    practice: '练习清单'
+    practiceState: '练习状态'
+    refresh: '刷新'
+    open: '查看'
+    changed: '条目已更新，保存后确认新版本'
+    save: '保存'
+    practiceNotes: '练习心得'
+    practiceEmpty: '从英雄手册添加练习条目'
+    windowSeconds: '前后窗口（秒）'
+    enemyJungler: '敌方打野参与'
+    baseline: '个人历史基准'
+    allChampions: '包含同位置其他英雄'
+    current: '本场'
+    median: '历史中位数'
+    quartiles: '历史四分位区间'
+    difference: '较中位数'
+    samples: '{{count}} 场样本'
+    samples_one: '{{count}} 场样本'
+    samples_other: '{{count}} 场样本'
+    insufficient: '至少 5 场后显示基准'
+    occurrences: '出现 {{count}} / {{total}} 场'
+    occurrences_one: '出现 {{count}} / {{total}} 场'
+    occurrences_other: '出现 {{count}} / {{total}} 场'
+    createGoal: '设为训练目标'
+    goalTitle: '目标名称'
+    increase: '提高至'
+    decrease: '降低至'
+    target: '目标值'
+    progress: '查看进度'
+    pause: '暂停'
+    activate: '开始训练'
+    complete: '完成目标'
+    abandon: '结束目标'
+    goalsEmpty: '在单场复盘的个人基准中创建目标'
+    frozenBaseline: '创建目标时的基准样本'
+    finishGoal: '结束后保留记录，无法再次开始此目标。'
+    confirm: '确认'
+    player: '选择玩家'
+    selectPage: '选择本页'
+    prepare: '准备 {{count}} 场复盘'
+    prepare_one: '准备 {{count}} 场复盘'
+    prepare_other: '准备 {{count}} 场复盘'
+    previous: '上一页'
+    next: '下一页'
+    start: '开始'
+    resume: '继续未完成项'
+    matches: '对局明细'
+    backup: '备份定制数据'
+    restore: '恢复定制数据'
+    backupSaved: '备份已保存'
+    restoreQuestion: '备份含 {{entries}} 条手册、{{matches}} 场对局。下次启动将替换当前定制数据，并保留恢复前备份。确认恢复？'
+    confirmRestore: '安排恢复'
+    restartRestore: '已安排恢复，退出并重新启动应用后生效'
+    states:
+      waiting: '等待客户端'
+      pending: '待处理'
+      practicing: '练习中'
+      mastered: '已掌握'
+      saved: '已保存'
+      applied: '已应用'
+      conflict: '客户端方案已变化'
+      failed: '失败，请重试'
+      draft: '样本不足'
+      active: '训练中'
+      paused: '已暂停'
+      completed: '已完成'
+      abandoned: '已结束'
+      preview: '待开始'
+      running: '进行中'
+      partial: '部分完成'
+      cancelled: '已取消'
+      interrupted: '已中断'
+      ready: '已就绪'
+    metrics:
+      cs10: '10 分钟补刀'
+      cs15: '15 分钟补刀'
+      goldDiff10: '10 分钟对位经济差'
+      goldDiff15: '15 分钟对位经济差'
+      csPerMin: '每分钟补刀'
+      deathsPer10: '每 10 分钟死亡'
+      goldDeficit10: '10 分钟经济落后'
+      deathBeforeObjective: '资源事件前 60 秒死亡'
+  experience:
+    search: 快捷搜索
+    searchPlaceholder: 搜索英雄、已访问玩家、手册、复盘或设置
+    settings: 设置
+    champion: 英雄
+    player: 玩家
+    notebook: 手册
+    review: 复盘
+    empty: 没有匹配结果
+    tasks: 任务
+    waiting: 等待客户端 · 已缓存内容可离线查看
+    syncing: 同步中
+    partial: 部分任务失败 · 已加载内容保留
+    connected: 已连接
+    retry: 重试失败部分
+    failed: 操作未完成，请重试
+    scenes: 场景配置
+    sceneCustom: 自定义
+    sceneName: 名称，例如排位、娱乐、只查战绩
+    saveScene: 保存当前配置
+    sceneIncludes: 自动接受、荣誉、再来一局、匹配及辅助窗口设置
+    delete: 删除
+    deleteScene: 删除这个预设？
+    preferences: 使用体验
+    restore: 恢复上次页面和筛选
+    archive: 自动归档当前账号战绩
+    session: 最近一次连续游玩
+    sessionScore: '{{count}} 场 · {{wins}} 胜 {{losses}} 负'
+    minutes: 分钟
+    remakes: '{{count}} 场重开'
+    observedRank: 已观察段位
+    partners: 常玩搭档
+    noPartners: 暂无重复同队记录
+    sharedGames: '共同 {{count}} 场'
+    viewShared: 查看共同对局
+    sampleLimit: '基于最近 {{count}} 场缓存'
+    share: 分享
+    matchCard: 对局战绩
+    showIdentity: 显示账号名称
+    copyImage: 复制图片
+    saveImage: 保存图片
+    shared: 图片已生成
+    win: 胜利
+    loss: 失败
