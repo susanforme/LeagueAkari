@@ -1,0 +1,520 @@
+pro:
+  championPool:
+    title: Champion pool
+    player: Player
+    selectPlayer: Select a player
+    noPlayers: Connect the client or open a player in match history
+    queues: Queues
+    allQueues: All queues
+    position: Position
+    allPositions: All positions
+    unknownPosition: Unknown position
+    champion: Champion
+    allChampions: All champions
+    unknownChampion: Unknown champion
+    patch: Patch
+    dateRange: Date range
+    allTime: All time
+    last30: Last 30 days
+    last90: Last 90 days
+    reset: Reset
+    sync: Sync matches
+    cancel: Cancel sync
+    syncCount: Matches to sync
+    syncProgress: 'Matches cached: {{processed}} / {{requested}}'
+    syncCancelled: Sync cancelled; completed pages retained
+    syncScope: Sync players on the connected client server; cached data is available offline
+    truncated: Only the latest 10,000 cached matches are analyzed; results do not cover the entire history
+    usage: Most played
+    games: Games
+    winRate: Win rate
+    kda: KDA
+    csPerMin: CS/min
+    damageShare: Damage share
+    metricSamples_one: 'Valid sample: {{count}}'
+    metricSamples_other: 'Valid samples: {{count}}'
+    missing: Missing data
+    zeroDenominator: Zero denominator
+    unknownOutcome: Unknown outcome
+    kdaRule: Mean of per-match KDA; zero-death matches excluded from this metric
+    empty: No cached matches match these filters
+    matchHistory: Match history
+    detailsUnavailable: Additional match data is unavailable. Check the client connection and data source, then retry.
+    back: Back to champion pool
+    openHistory: Open match history
+    unavailable: Pro database unavailable; original data retained
+    newerVersion: This pro database requires a newer application version
+    loadFailed: Unable to load champion pool. Please retry.
+    retry: Retry
+    disconnected: Connect the League client first
+    differentServer: Only players on the connected client server can be synchronized
+    waitingToken: Waiting for SGP authentication
+    busy: Another sync is already running
+    syncFailed: Sync failed; cached data retained. Check the client connection and data source before retrying.
+    invalidFilter: Check the patch and date range
+    resourcesUnavailable: Champion resources unavailable. Connect the client or check your network and retry.
+  notebook:
+    chooseChampion: Choose a champion to open their handbook
+    backToChampions: All champions
+    championSearch: Search champion name, pinyin or ID
+    recordedOnly: With notes only
+    sort: Champion order
+    sorts:
+      recent: Recently updated
+      name: Champion name
+      count: Most notes
+    entryCount_one: '{{count}} entry'
+    entryCount_other: '{{count}} entries'
+    trashCount_one: '{{count}} trashed entry'
+    trashCount_other: '{{count}} trashed entries'
+    updated: 'Updated {{date}}'
+    startHandbook: Start writing
+    noChampions: No champions match these filters
+    noEntriesMatch: No entries match these filters
+    trashEmpty: No trashed entries for this champion
+    clearFilters: Clear filters
+    useTemplate: Use writing template
+    templates:
+      note: |-
+        Core game plan:
+
+        Laning and farming:
+
+        Teamfight role:
+
+        Next practice goal:
+      combo: |-
+        When to use:
+
+        Timing and execution:
+
+        Common mistakes:
+      matchup: |-
+        Lane objective:
+
+        Key abilities and cooldown windows:
+
+        Trading and wave management:
+
+        Power spikes and risks:
+      build: |-
+        Team compositions and situations:
+
+        Core item reasoning:
+
+        Alternative items and when to switch:
+
+        Skill order reasoning:
+    title: Champion handbook
+    library: My handbook
+    quick: Pre-game lookup
+    champion: Select champion
+    search: Search titles or text
+    allKinds: All types
+    create: 'New {{kind}}'
+    newEntry: New entry
+    entryTitle: Title
+    body: Notes and instructions
+    against: Against
+    opponent: Opponent champion
+    position: Position
+    pinned: Pinned
+    pin: Pin
+    unpin: Unpin
+    edit: Edit
+    delete: Move to trash
+    trash: Trash
+    recover: Recover entry
+    history: History
+    revision: 'Revision {{n}}'
+    restore: Restore this version
+    copy: Copy entry
+    copyTitle: '{{title}} (copy)'
+    save: Save
+    saveCopy: Save as new entry
+    cancel: Cancel
+    refresh: Refresh
+    retry: Retry
+    empty: No entries of this type yet. Write your first note.
+    quickEmpty: No entries match this champion and the revealed opponents.
+    loadFailed: Unable to load. Refresh to retry.
+    saveFailed: Save failed. Your edits are preserved; please retry.
+    conflict: This entry changed elsewhere. Reopen the latest version or save your edits as a new entry.
+    invalid: Check the title, opponent, combo entities, item groups, quantities and content length.
+    resourcesUnavailable: Some game resources are unavailable. Saved content remains accessible.
+    waitingSelection: Connect the client and select a champion during champion select.
+    publicOpponents: All revealed opponents
+    unsaved: Unsaved changes
+    discardQuestion: Discard your current edits?
+    discard: Discard
+    keepEditing: Keep editing
+    action: Combo action
+    stepLabel: Step note, e.g. Q2
+    addStep: Add step
+    moveUp: Move up
+    moveDown: Move down
+    remove: Remove
+    item: Select item
+    spell: Select summoner spell
+    addItem: Add item
+    quantity: Quantity
+    groupName: Item group name
+    groupDefault: New group
+    addGroup: Add item group
+    skillOrder: Skill order
+    removeLevel: 'Remove skill upgrade {{level}}'
+    undo: Undo last upgrade
+    fromMatch: Create build from match
+    importReady: A match build draft is ready.
+    openDraft: Open draft
+    matchBuildTitle: 'Match {{id}} build'
+    finalItems: Final inventory
+    importExplanation: Items come from the final inventory, not purchase order. Skill order is filled only when the timeline is available. Review before saving.
+    matchSource: 'Source match: {{id}}'
+    kinds:
+      note: Note
+      combo: Combo
+      matchup: Matchup
+      build: Build and skill order
+    actions:
+      skill: Champion ability
+      attack: Attack
+      move: Move
+      spell: Summoner spell
+      item: Item
+      text: Text action
+    positions:
+      TOP: Top
+      JUNGLE: Jungle
+      MIDDLE: Mid
+      BOTTOM: Bottom
+      UTILITY: Support
+  review:
+    findings:
+      title: Match highlights
+      goldDropTitle: Falling gold difference
+      goldDrop: 'Your gold difference against the lane opponent fell by {{value}} during this interval.'
+      farmTitle: Farm below your recent level
+      farm: 'CS at this point: {{value}}. Your recent comparable median: {{baseline}}.'
+      farmSummary: 'CS per minute this match: {{value}}. Your recent comparable median: {{baseline}}.'
+      goldDeficitTitle: Behind in lane gold
+      goldDeficit: 'You were {{value}} gold behind the same-position opponent at this point.'
+      deathBeforeObjectiveTitle: Objective event near a death
+      deathBeforeObjective: 'A building or epic monster kill was recorded within 60 seconds after your death at {{time}}.'
+      deathsTitle: Death rate above your recent level
+      deaths: 'Deaths per 10 minutes this match: {{value}}. Your recent comparable median: {{baseline}}.'
+      sampleScope_one: 'Same champion, position, queue and patch · {{count}} historical match'
+      sampleScope_other: 'Same champion, position, queue and patch · {{count}} historical matches'
+      occurrences_one: 'Observed in {{count}} of those matches'
+      occurrences_other: 'Observed in {{count}} of those matches'
+      compare: Compare a match with better farm
+    title: Match review
+    open: Review match
+    library: Reports
+    libraryHelp: Generate reports from champion-pool matches. Saved reports work offline. Select two reports to compare them.
+    empty: No saved reports
+    refresh: Fetch timeline again
+    retry: Retry
+    loadFailed: Could not read the report or fetch its timeline. Check the client and data source. Saved reports are retained.
+    compare: Compare matches
+    compareSelected: 'Compare selected reports ({{count}}/2)'
+    selectForCompare: 'Select match {{id}} for comparison'
+    compareHelp: Curves align by game time and show observed samples only. Missing values are not zeroes. Items are from the final inventory.
+    differentContext: These reports differ in player, champion, queue, position, patch or analysis version. Differences cannot be attributed solely to performance.
+    savedAt: 'Saved {{time}}'
+    kda: Kills / deaths / assists
+    duration: Duration
+    csPerMin: CS per minute
+    checkpoint: Target / actual sample
+    checkpointHelp: Uses the latest sample within one minute before the target. Missing samples and targets after game end show “—”. CS includes jungle minions.
+    gold: Total gold
+    cs: CS
+    xp: XP
+    goldDiff: Lane gold difference
+    csDiff: Lane CS difference
+    finalItems: Final inventory
+    timelineMissing: No timeline is available yet. Only post-game data is shown. Connect the client and fetch again.
+    opponentUnknown: A unique lane opponent could not be identified. Lane differences are unavailable.
+    unsupportedMode: This is not a classic Summoner’s Rift game. Lane matching is disabled; recorded events remain available.
+    eventsTitle: Events and notes
+    matchDetails: Match details
+    selectEvent: Locate a death or objective event
+    timeSeconds: Game time (seconds)
+    eventHelp: Shows events and samples within one minute before and after the selected time. Objective takedowns do not describe the entire contest. Proximity does not establish causation.
+    observedFrames: Actual samples
+    goldChange: Gold gained
+    csChange: CS gained
+    goldDiffChange: Change in lane gold difference
+    evidence: Evidence
+    noEvents: No recorded events in this window
+    unknown: Unknown / environment
+    killEvent: '{{killer}} killed {{victim}}'
+    building: Building destroyed
+    notes: Timestamped notes
+    notePlaceholder: Record your decision, mistake, or what to try next time…
+    saveNote: Save to champion handbook
+    handbook: Open champion handbook
+    saveFailed: Could not save or read notes. Your input is retained; please retry.
+    noteTitle: 'Match {{id}} · {{time}}'
+    locateNote: 'Return to review at {{time}}'
+    discardTitle: Unsaved review note
+    discardText: Leaving will discard your input. Continue?
+    leave: Leave
+    stay: Keep editing
+    objectives:
+      DRAGON: Dragon
+      BARON_NASHOR: Baron Nashor
+      RIFTHERALD: Rift Herald
+      HORDE: Void Grubs
+      ATAKHAN: Atakhan
+    events:
+      ITEM_PURCHASED: Purchased item
+      ITEM_SOLD: Sold item
+      ITEM_UNDO: Undid item action
+  profile:
+    activity:
+      heatmap: Game calendar · Last 30 days
+      heatmapHelp: Darker cells mean more games. Hover or select a date for details.
+      noDailyRecords: No synced records for this day.
+      dailyGames_one: '{{count}} game'
+      dailyGames_other: '{{count}} games'
+      legend: Games per day
+      less: Less
+      more: More
+      levels:
+        '0': No synced records
+        '1': 1–2 games
+        '3': 3–5 games
+        '6': 6–9 games
+        '10': 10+ games
+      title: Activity · Last 30 days
+      games: Games
+      activeDays: Active days
+      duration: Play time
+      winRate: Win rate
+      period: Period
+      recentWeek: Last 7 days
+      previousWeek: Previous 7 days
+      change: Change vs. previous 7 days
+      results: '{{wins}} W / {{losses}} L'
+      unknownResults_one: '{{count}} unknown result'
+      unknownResults_other: '{{count}} unknown results'
+      durationSamples_one: '{{count}} game with duration'
+      durationSamples_other: '{{count}} games with duration'
+      hours: '{{value}} h'
+      minutes: '{{value}} min'
+      percentagePoints: '{{value}} pp'
+      empty: No synced games in the last 30 days. Sync match history from Champion Pool.
+      truncated: Only the latest 10,000 games are included; results may be incomplete.
+      openHistory: Match history
+      openPool: Open Champion Pool
+    trendTitle: Rank and LP history
+    leaguePoints: League points
+    change: Since previous capture
+    recordOrder: Capture order (equally spaced)
+    trendHelp: Includes all captures for the selected season and queue. Hover or click a point, or select a table timestamp. Lines connect observations, not individual game gains. LP may reset on promotion or demotion; unranked and provisional captures leave gaps.
+    unknownSeason: Unknown season
+    unknownSeasonHelp: These captures have no season ID. They are shown as separate points without calculating changes or inferring a season.
+    noSeasonRecords: No captures for this account, season and queue
+    noRankedPoints: No completed-placement captures yet; all snapshots remain available in the table below
+    title: Personal profile
+    capture: Record current account rank
+    refresh: Refresh local records
+    failed: Could not read or record this snapshot. Previous history is retained.
+    selectPlayer: Select a recorded account
+    level: 'Level {{level}}'
+    observedAt: 'Last recorded: {{time}}'
+    history: Rank history snapshots
+    time: Observed at
+    season: Season ID
+    rank: Rank
+    winsLosses: Wins / losses
+    reason: Capture source
+    provisional: Provisional
+    unranked: Unranked
+    empty: Connect the client to start recording rank history
+    reasons:
+      connected: Account connection
+      rankedUpdate: Ranked update
+      endGame: Game completion
+      manual: Manual capture
+  workshop:
+    reviewStates:
+      all: 'All review states'
+      unmarked: 'Unmarked'
+      needsReview: 'Needs review'
+      confirmed: 'Confirmed'
+    targetPatch: 'Target patch, e.g. 26.20'
+    patchReview: 'Patch review'
+    confirmPatch: 'Confirm applicability'
+    tags: 'Tags'
+    awaitingConfirmation: 'Awaiting client confirmation. Apply again to verify.'
+    importAdded_one: '{{count}} new entry'
+    importAdded_other: '{{count}} new entries'
+    importDuplicates_one: '{{count}} duplicate skipped'
+    importDuplicates_other: '{{count}} duplicates skipped'
+    importMissingLinks_one: '{{count}} unavailable link'
+    importMissingLinks_other: '{{count}} unavailable links'
+    settingsTab: 'Pro'
+    notebookData: 'Champion notebook'
+    exportScope: 'Export scope'
+    allHeroes: 'All champions'
+    notebookTransfer: 'Notebook import and export'
+    clientBuild: 'Client item sets'
+    selectBuild: 'Select a build'
+    proData: 'All pro data'
+    backupRestore: 'Backup and restore'
+    restoreFailed: 'Restore failed. Current data was retained.'
+    restoreApplied: 'Restore completed.'
+    restoreScheduled: 'Restore scheduled for next launch.'
+    title: 'Training'
+    training: 'Goals'
+    batch: 'Batch reviews'
+    data: 'Data'
+    patch: 'Reviewed patch, e.g. 26.20'
+    rift: 'Summoner’s Rift'
+    aram: 'Howling Abyss'
+    map: 'Map'
+    links: 'Linked entries'
+    export: 'Export notebook'
+    import: 'Import notebook'
+    failed: 'Operation failed. Try again.'
+    conflict: 'Content changed. Refresh and retry.'
+    importCounts: 'Add {{added}}, skip {{duplicates}} duplicates, {{links}} unavailable links'
+    replace: 'Replace existing entry'
+    confirmImport: 'Import (keep unselected conflicts as new entries)'
+    reviewed: 'Reviewed {{patch}}'
+    addPractice: 'Add to practice'
+    exportBuild: 'Export item set'
+    applyBuild: 'Apply to client'
+    autoBuild: 'Sync when selecting this champion'
+    createCopy: 'Create copy'
+    overwrite: 'Overwrite this set'
+    overwriteQuestion: 'This item set was changed in the client. Overwrite it? Other sets are preserved.'
+    cancel: 'Cancel'
+    practice: 'Practice'
+    practiceState: 'Practice state'
+    refresh: 'Refresh'
+    open: 'Open'
+    changed: 'Entry updated; save to acknowledge this version'
+    save: 'Save'
+    practiceNotes: 'Practice notes'
+    practiceEmpty: 'Add entries to practice from the notebook'
+    windowSeconds: 'Window on each side (seconds)'
+    enemyJungler: 'Enemy jungler involved'
+    baseline: 'Personal baseline'
+    allChampions: 'Include other champions in this role'
+    current: 'This match'
+    median: 'Historical median'
+    quartiles: 'Historical quartiles'
+    difference: 'Difference from median'
+    samples: '{{count}} samples'
+    samples_one: '{{count}} sample'
+    samples_other: '{{count}} samples'
+    insufficient: 'Baseline needs at least 5 matches'
+    occurrences: 'Occurred in {{count}} / {{total}} matches'
+    occurrences_one: 'Occurred in {{count}} / {{total}} matches'
+    occurrences_other: 'Occurred in {{count}} / {{total}} matches'
+    createGoal: 'Create training goal'
+    goalTitle: 'Goal name'
+    increase: 'Increase to'
+    decrease: 'Decrease to'
+    target: 'Target'
+    progress: 'View progress'
+    pause: 'Pause'
+    activate: 'Activate'
+    complete: 'Complete goal'
+    abandon: 'Abandon goal'
+    goalsEmpty: 'Create a goal from a match’s personal baseline'
+    frozenBaseline: 'Baseline samples captured for this goal'
+    finishGoal: 'The record is retained. This goal cannot be restarted after closing.'
+    confirm: 'Confirm'
+    player: 'Select player'
+    selectPage: 'Select page'
+    prepare: 'Prepare {{count}} reviews'
+    prepare_one: 'Prepare {{count}} review'
+    prepare_other: 'Prepare {{count}} reviews'
+    previous: 'Previous'
+    next: 'Next'
+    start: 'Start'
+    resume: 'Resume incomplete items'
+    matches: 'Matches'
+    backup: 'Back up pro data'
+    restore: 'Restore pro data'
+    backupSaved: 'Backup saved'
+    restoreQuestion: 'Backup contains {{entries}} notebook entries and {{matches}} matches. Next launch replaces pro data and retains a pre-restore backup. Continue?'
+    confirmRestore: 'Schedule restore'
+    restartRestore: 'Restore scheduled. Quit and restart the app to apply it.'
+    states:
+      waiting: 'Waiting for client'
+      pending: 'Pending'
+      practicing: 'Practicing'
+      mastered: 'Mastered'
+      saved: 'Saved'
+      applied: 'Applied'
+      conflict: 'Client item set changed'
+      failed: 'Failed. Retry.'
+      draft: 'Needs baseline samples'
+      active: 'Active'
+      paused: 'Paused'
+      completed: 'Completed'
+      abandoned: 'Abandoned'
+      preview: 'Ready to start'
+      running: 'Running'
+      partial: 'Partially completed'
+      cancelled: 'Cancelled'
+      interrupted: 'Interrupted'
+      ready: 'Ready'
+    metrics:
+      cs10: 'CS at 10 minutes'
+      cs15: 'CS at 15 minutes'
+      goldDiff10: 'Lane gold difference at 10 minutes'
+      goldDiff15: 'Lane gold difference at 15 minutes'
+      csPerMin: 'CS per minute'
+      deathsPer10: 'Deaths per 10 minutes'
+      goldDeficit10: 'Gold deficit at 10 minutes'
+      deathBeforeObjective: 'Death within 60 seconds before an objective'
+  experience:
+    search: Quick search
+    searchPlaceholder: Champions, visited players, notebook, reviews or settings
+    settings: Settings
+    champion: Champion
+    player: Player
+    notebook: Notebook
+    review: Review
+    empty: No matches
+    tasks: Tasks
+    waiting: Waiting for client · Cached content available offline
+    syncing: Synchronizing
+    partial: Some tasks failed · Loaded content retained
+    connected: Connected
+    retry: Retry failed tasks
+    failed: Could not complete. Please retry.
+    scenes: Scene presets
+    sceneCustom: Custom
+    sceneName: Name, e.g. Ranked, Casual, History only
+    saveScene: Save current settings
+    sceneIncludes: Auto accept, honor, play again, matchmaking and companion windows
+    delete: Delete
+    deleteScene: Delete this preset?
+    preferences: Experience
+    restore: Restore last page and filters
+    archive: Automatically archive my matches
+    session: Latest play session
+    sessionScore: '{{count}} games · {{wins}} wins / {{losses}} losses'
+    minutes: min
+    remakes: '{{count}} remakes'
+    observedRank: Observed rank
+    partners: Frequent teammates
+    noPartners: No repeated teammates yet
+    sharedGames: '{{count}} games together'
+    viewShared: View shared matches
+    sampleLimit: 'Based on the latest {{count}} cached matches'
+    share: Share
+    matchCard: Match result
+    showIdentity: Include account name
+    copyImage: Copy image
+    saveImage: Save image
+    shared: Image created
+    win: Victory
+    loss: Defeat

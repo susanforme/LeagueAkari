@@ -2,6 +2,7 @@ import { is, optimizer } from '@electron-toolkit/utils'
 import '@main/i18n'
 import { initAppLogger } from '@main/logger'
 import { initializeNativeRuntime } from '@main/native'
+import { registerProShards } from '@main/pro/register'
 import { AkariApiMain } from '@main/shards/akari-api'
 import { AkariProtocolMain } from '@main/shards/akari-protocol'
 import { AppCommonMain } from '@main/shards/app-common'
@@ -344,6 +345,8 @@ export function bootstrap() {
     // other
     manager.use(ExtraAssetsMain)
     manager.use(RendererDebugMain)
+
+    registerProShards(manager)
 
     // external shards
     const shardsDir = path.join(app.getPath('exe'), '..', 'shards')

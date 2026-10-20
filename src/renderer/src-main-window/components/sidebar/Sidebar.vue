@@ -48,6 +48,7 @@
 </template>
 
 <script setup lang="tsx">
+import { proNavigation } from '@renderer-pro/main-window/navigation'
 import AkariLogo from '@renderer-shared/assets/icon/AkariLogo.vue'
 import { useInstance } from '@renderer-shared/shards'
 import { useAppCommonStore } from '@renderer-shared/shards/app-common/store'
@@ -171,6 +172,7 @@ watch(
 const currentMenu = ref('match-history')
 const menu = computed(() => {
   return [
+    ...proNavigation(t),
     {
       key: 'player-tabs',
       icon: renderIcon(AnalyticsRoundIcon),
@@ -203,6 +205,7 @@ const menu = computed(() => {
 })
 
 const handleMenuChange = async (val: string | undefined) => {
+  if (!val) return
   try {
     await router.replace({ name: val })
   } catch (error) {

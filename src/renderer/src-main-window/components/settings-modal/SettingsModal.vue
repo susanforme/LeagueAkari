@@ -63,6 +63,15 @@
         </template>
         <StorageSettings />
       </NTabPane>
+      <NTabPane name="pro">
+        <template #tab>
+          <div class="tab-icon-title">
+            <NIcon class="icon"><PuzzlePiece24RegularIcon /></NIcon>
+            <span>{{ t('pro.workshop.settingsTab') }}</span>
+          </div>
+        </template>
+        <ProSettings />
+      </NTabPane>
       <NTabPane name="misc" :tab="t('settings.misc.title')">
         <template #tab>
           <div class="tab-icon-title">
@@ -95,11 +104,13 @@
 </template>
 
 <script setup lang="ts">
+import ProSettings from '@renderer-pro/main-window/settings/ProSettings.vue'
 import { useAppCommonStore } from '@renderer-shared/shards/app-common/store'
 import { ToolFilled as ToolFilledIcon } from '@vicons/antd'
 import { Debug as DebugIcon, Layers as LayersIcon } from '@vicons/carbon'
 import {
   Games24Filled as Games24FilledIcon,
+  PuzzlePiece24Regular as PuzzlePiece24RegularIcon,
   Settings16Filled as Settings16FilledIcon,
   Storage24Filled as Storage24FilledIcon,
   WindowMultiple20Regular as WindowMultiple20RegularIcon

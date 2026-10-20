@@ -1,9 +1,9 @@
 ---
-name: custom
-description: 为 League Akari fork 设计、实现或审查定制功能，以及同步上游时检查定制兼容性。遵循 main、renderer、shared 各自的 custom 目录隔离、双 SQLite 和最小接入点方案；不用于普通上游功能维护。
+name: pro
+description: 为 League Akari fork 设计、实现或审查定制功能，以及同步上游时检查定制兼容性。遵循 main、renderer、shared 各自的 pro 目录隔离、双 SQLite 和最小接入点方案；不用于普通上游功能维护。
 ---
 
-# League Akari 定制开发
+# League Akari Pro 定制开发
 
 目标：让定制代码一眼可辨，减少跟进上游时的冲突，同时沿用现有 Electron、Shard、IPC、Vue 和数据库技术栈。
 
@@ -18,7 +18,7 @@ description: 为 League Akari fork 设计、实现或审查定制功能，以及
 - 调试 dev 窗口时读 [league-akari-mcp-debug](../league-akari-mcp-debug/SKILL.md)。
 - 准备 PR 前读取仓库根目录 `PR_REQUIREMENTS.md`。
 
-定制代码的位置采用下述用户指定的 `custom` 结构，替代一般 Shard 示例中的默认目录。
+定制代码的位置采用下述用户指定的 `pro` 结构，替代一般 Shard 示例中的默认目录。
 其余生命周期、职责拆分、IPC、UI 和测试规则继续遵循项目技能。
 
 ## 目录边界
@@ -27,7 +27,7 @@ description: 为 League Akari fork 设计、实现或审查定制功能，以及
 
 ```text
 src/
-├── main/custom/
+├── main/pro/
 │   ├── register.ts
 │   └── shards/
 │       ├── storage/
@@ -37,7 +37,7 @@ src/
 │       │   ├── entities/
 │       │   └── upgrades/
 │       └── <实际功能名>/
-├── renderer/custom/
+├── renderer/pro/
 │   ├── main-window/
 │   │   ├── register.ts
 │   │   ├── routes.ts
@@ -50,16 +50,16 @@ src/
 │   │   ├── composables/
 │   │   └── locales/
 │   └── <其他实际使用的窗口>/
-└── shared/custom/
+└── shared/pro/
     └── <实际功能名>/
 ```
 
-- 只在边界目录使用 `custom`；内部目录使用实际业务名，不采用 `custom-业务名`。
+- 只在边界目录使用 `pro`；内部目录使用实际业务名，不采用 `pro-业务名`。
 - Shard ID、IPC namespace、路由名、翻译根键等全局标识保留定制命名空间，避免和上游重名。
 - 页面私有组件、辅助文件和测试留在功能目录；确实跨功能或跨窗口复用时再提取。
-- `renderer/custom/shared` 是 renderer 专用共享代码，可以依赖 Vue、Pinia。
-- `shared/custom` 是 main 与 renderer 共用的数据契约、校验、常量或纯函数，不引入数据库实体、Electron 主进程模块或 Vue 页面。
-- 定制 renderer 代码集中在 `renderer/custom`，不要散落到上游 `renderer-shared`。
+- `renderer/pro/shared` 是 renderer 专用共享代码，可以依赖 Vue、Pinia。
+- `shared/pro` 是 main 与 renderer 共用的数据契约、校验、常量或纯函数，不引入数据库实体、Electron 主进程模块或 Vue 页面。
+- 定制 renderer 代码集中在 `renderer/pro`，不要散落到上游 `renderer-shared`。
 - 不复制整套上游页面、连接层或公共基础设施；复用其公开能力，只在真实易变依赖处做薄适配。
 - 不因几个定制功能引入动态插件系统、新仓库、新窗口或独立构建体系。
 
@@ -67,10 +67,10 @@ src/
 
 默认使用同一应用 `userData` 下的两个文件：
 
-| 数据库 | 所有者 | 内容 |
-| --- | --- | --- |
-| `LeagueAkari.db` | 上游 StorageMain | 上游原有数据 |
-| `CustomFeatures.db` | `main/custom/shards/storage` | 定制业务数据与需持久化的业务配置 |
+| 数据库           | 所有者                    | 内容                             |
+| ---------------- | ------------------------- | -------------------------------- |
+| `LeagueAkari.db` | 上游 StorageMain          | 上游原有数据                     |
+| `ProFeatures.db` | `main/pro/shards/storage` | 定制业务数据与需持久化的业务配置 |
 
 - 复用已安装的 TypeORM 和 better-sqlite3；主进程分别管理两个 DataSource。
 - 定制库独立维护实体、结构版本和迁移。不要向原库追加实体、列或定制迁移，也不要继承原库生命周期来处理定制数据。
@@ -105,21 +105,28 @@ src/
 - 路由名与菜单 key 保持对应；出现嵌套子路由时再处理父菜单选中映射。
 - 检查现有游戏开始自动跳转是否符合新页面需求，不默默覆盖上游行为。
 
+## 面向用户的 UI 文案
+
+- UI 只展示帮助用户识别内容、理解结果或完成操作的必要文案。不要展示非面向用户的冗余说明，包括开发过程、架构与实现细节、数据库/IPC/接口机制，以及为解释实现而添加的长段统计规则或限制说明；这些内容放在代码注释、开发文档或交付说明中。
+- 不默认添加常驻说明横幅、页脚解释或重复功能标题的操作教程。界面已能表达的内容不再解释；用户要求删除的说明，不换个位置、改写后或放进 tooltip 重新展示。
+- 保留必要的字段标签、单位、图例、空状态、失败原因与恢复操作。只有会直接影响当前用户判断的数据缺失或限制，才在相关位置用简短、具体的语言提示，避免泛化免责声明。
+- 实现和审查页面时逐条检查说明文案：删去后不影响用户理解或操作的，默认删除；不要把开发者需要了解的信息当成产品用户必须阅读的内容。
+
 ## 最小接入点
 
 实施前核对当前源码，以下是已讨论的接入位置，不是允许任意重构这些文件：
 
-| 现有文件 | 定制接入 |
-| --- | --- |
-| `src/main/bootstrap/index.ts` | setup 前调用 `main/custom/register.ts` 注册定制 shards |
-| `src/renderer/src-main-window/shards/index.ts` | 调用定制主窗口 register |
-| `src/renderer/src-main-window/routes/index.ts` | 追加定制路由，页面可延迟加载 |
-| `src/renderer/src-main-window/components/sidebar/Sidebar.vue` | 在现有响应式菜单中追加定制 navigation |
-| `src/renderer-shared/i18n/index.ts` | 接入定制文案，避免翻译根键重名 |
-| `tsconfig.web.json` | 覆盖 `src/renderer/custom` 的 TypeScript 与 Vue 文件 |
-| `electron.vite.config.ts`、`tsconfig.web.json` | 需要时一致配置 `@renderer-custom` 别名 |
+| 现有文件                                                      | 定制接入                                            |
+| ------------------------------------------------------------- | --------------------------------------------------- |
+| `src/main/bootstrap/index.ts`                                 | setup 前调用 `main/pro/register.ts` 注册定制 shards |
+| `src/renderer/src-main-window/shards/index.ts`                | 调用定制主窗口 register                             |
+| `src/renderer/src-main-window/routes/index.ts`                | 追加定制路由，页面可延迟加载                        |
+| `src/renderer/src-main-window/components/sidebar/Sidebar.vue` | 在现有响应式菜单中追加定制 navigation               |
+| `src/renderer-shared/i18n/index.ts`                           | 接入定制文案，避免翻译根键重名                      |
+| `tsconfig.web.json`                                           | 覆盖 `src/renderer/pro` 的 TypeScript 与 Vue 文件   |
+| `electron.vite.config.ts`、`tsconfig.web.json`                | 需要时一致配置 `@renderer-pro` 别名                 |
 
-main 与 shared 可沿用 `@main/custom`、`@shared/custom`。核对测试工具是否需要对应的路径解析配置。
+main 与 shared 可沿用 `@main/pro`、`@shared/pro`。核对测试工具是否需要对应的路径解析配置。
 普通页面复用现有窗口入口、preload 和 IPC，无需新增 Vite entry。
 后续新增功能优先修改自己的 register、routes、navigation；其他窗口只有使用功能时才添加接入。
 
@@ -141,7 +148,7 @@ main 与 shared 可沿用 `@main/custom`、`@shared/custom`。核对测试工具
 同步期间目标分支有新提交时，重新集成并验证。
 
 保持三类变更可辨：定制功能、上游接入、确有必要的上游行为修改；避免夹带无关格式化和重构。
-修改范围主要是三个 custom 目录及明确列出的接入点，但不承诺零冲突或永久兼容。
+修改范围主要是三个 pro 目录及明确列出的接入点，但不承诺零冲突或永久兼容。
 
 ## 验证与发布边界
 

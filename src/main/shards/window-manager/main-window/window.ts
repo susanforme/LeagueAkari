@@ -1,3 +1,4 @@
+import { is } from '@electron-toolkit/utils'
 import icon from '@resources/LA_ICON.ico?asset'
 import { Event } from 'electron'
 import { comparer } from 'mobx'
@@ -57,7 +58,7 @@ export class AkariMainWindow extends BaseAkariWindow<MainWindowState, MainWindow
     this._mobxUtils.reaction(
       () => this.state.ready,
       (ready) => {
-        if (ready) {
+        if (ready && !(is.dev && process.platform === 'darwin')) {
           this.showOrRestore()
         }
       }

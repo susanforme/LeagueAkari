@@ -1,0 +1,418 @@
+<template>
+  <div class="pool-page flex h-full min-w-0 flex-col">
+    <div
+      class="flex flex-wrap items-center gap-3 border-b border-(--la-color-popover-border) px-6 py-3"
+    >
+      <NIcon :component="PeopleTeam24Regular" size="22" />
+      <span class="mr-2 text-base font-bold">{{ t('title') }}</span>
+      <NSelect
+        v-model:value="selected"
+        class="w-64!"
+        :options="playerOptions"
+        filterable
+        :placeholder="t('selectPlayer')"
+        :aria-label="t('player')"
+        size="small"
+      />
+      <div class="flex-1" />
+      <ShareCard v-if="result" :title="t('title')" :lines="shareLines" :identity="player?.name" />
+      <NSelect
+        v-model:value="count"
+        class="w-24!"
+        size="small"
+        :options="countOptions"
+        :aria-label="t('syncCount')"
+      />
+      <NTooltip>
+        <template #trigger>
+          <NButton
+            size="small"
+            type="primary"
+            secondary
+            :disabled="!player || status?.storage !== 'ready' || status.sync.running"
+            @click="sync"
+            >{{ t('sync') }}</NButton
+          >
+        </template>
+        {{ t('syncScope') }}
+      </NTooltip>
+    </div>
+    <NScrollbar class="flex-1">
+      <div class="flex flex-col gap-4 px-6 py-4">
+        <NAlert v-if="status && status.storage !== 'ready'" type="error" :show-icon="true">
+          {{ t(status.storage === 'newer-version' ? 'newerVersion' : 'unavailable') }}
+        </NAlert>
+        <NAlert v-if="error" type="error" closable @close="error = ''">
+          {{ t(error) }} <NButton size="tiny" text @click="refresh">{{ t('retry') }}</NButton>
+        </NAlert>
+        <NAlert v-if="resourcesUnavailable && !league.isConnected" type="warning">
+          {{ t('resourcesUnavailable') }}
+          <NButton text size="tiny" @click="reloadResources">{{ t('retry') }}</NButton>
+        </NAlert>
+        <div v-if="status?.sync.running" class="flex items-center gap-3">
+          <NSpin size="small" />
+          <span>{{
+            t('syncProgress', {
+              processed: status.sync.processed,
+              requested: status.sync.requested
+            })
+          }}</span>
+          <NButton size="tiny" @click="cancel">{{ t('cancel') }}</NButton>
+        </div>
+        <NAlert v-else-if="status?.sync.error" type="warning"
+          >{{ t(status.sync.error) }}
+          <NButton text @click="retrySync">{{ t('retry') }}</NButton></NAlert
+        >
+        <span v-else-if="status?.sync.cancelled" class="text-xs opacity-60">{{
+          t('syncCancelled')
+        }}</span>
+        <div class="flex flex-wrap items-center gap-2">
+          <NSelect
+            v-model:value="queues"
+            multiple
+            clearable
+            filterable
+            class="w-60!"
+            size="small"
+            :options="queueOptions"
+            :placeholder="t('allQueues')"
+            :aria-label="t('queues')"
+          />
+          <NSelect
+            v-model:value="position"
+            clearable
+            class="w-32!"
+            size="small"
+            :options="positionOptions"
+            :placeholder="t('allPositions')"
+            :aria-label="t('position')"
+          />
+          <NDatePicker
+            v-model:value="dates"
+            type="daterange"
+            clearable
+            size="small"
+            :shortcuts="dateShortcuts"
+            :aria-label="t('dateRange')"
+            class="w-64!"
+          />
+          <NInput
+            v-model:value="patch"
+            clearable
+            class="w-24!"
+            size="small"
+            :placeholder="t('patch')"
+            :aria-label="t('patch')"
+            :maxlength="20"
+          />
+          <NSelect
+            v-model:value="championId"
+            clearable
+            filterable
+            class="w-40!"
+            size="small"
+            :options="championOptions"
+            :placeholder="t('allChampions')"
+            :aria-label="t('champion')"
+          />
+          <NButton size="small" quaternary @click="reset">{{ t('reset') }}</NButton>
+        </div>
+        <NAlert v-if="result?.truncated" type="warning">{{ t('truncated') }}</NAlert>
+        <NEmpty v-if="!player" :description="t('noPlayers')" class="my-16" />
+        <template v-else-if="championId">
+          <NSpin :show="loading">
+            <ChampionDetail
+              v-if="detail"
+              :champion="detail"
+              :player="player"
+              :matches="matches"
+              :loading="loading"
+              v-model:page="matchPage"
+              v-model:page-size="matchPageSize"
+              @back="championId = null"
+              @history="openHistory"
+              @navigate="openPlayer"
+            />
+            <div v-else class="flex flex-col items-center gap-3 py-12">
+              <NEmpty :description="t('empty')" />
+              <NButton size="small" @click="championId = null">{{ t('back') }}</NButton>
+            </div>
+          </NSpin>
+        </template>
+        <template v-else>
+          <div v-if="result?.topChampions.length" class="pool-panel rounded p-4">
+            <div class="mb-2 font-bold">{{ t('usage') }}</div>
+            <ChampionUsageChart
+              :champions="result.topChampions"
+              :label="t('games')"
+              @select="championId = $event"
+            />
+          </div>
+          <ChampionPoolTable
+            :items="result?.items ?? []"
+            :loading="loading"
+            :sort="sort"
+            :sort-direction="sortDirection"
+            @sort="
+              (field, direction) => {
+                sort = field
+                sortDirection = direction
+              }
+            "
+            @select="championId = $event"
+          />
+          <NPagination
+            v-if="result && result.totalChampions > 20"
+            v-model:page="page"
+            :item-count="result.totalChampions"
+            :page-size="20"
+            class="self-end"
+          />
+        </template>
+      </div>
+    </NScrollbar>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { useLeagueClientStore } from '@renderer-shared/shards/league-client/store'
+import { positions } from '@shared/pro/champion-pool'
+import { PeopleTeam24Regular } from '@vicons/fluent'
+import { useTranslation } from 'i18next-vue'
+import {
+  NAlert,
+  NButton,
+  NDatePicker,
+  NEmpty,
+  NIcon,
+  NInput,
+  NPagination,
+  NScrollbar,
+  NSelect,
+  NSpin,
+  NTooltip
+} from 'naive-ui'
+import { computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { z } from 'zod'
+import { useWorkspaceState } from '../../../shared/composables/useWorkspaceState'
+import ShareCard from '../../../shared/components/share-card/ShareCard.vue'
+
+import ChampionDetail from './ChampionDetail.vue'
+import ChampionPoolTable from './ChampionPoolTable.vue'
+import ChampionUsageChart from './ChampionUsageChart.vue'
+import { useChampionPool } from './useChampionPool'
+import { useChampionPoolResources } from './useChampionPoolResources'
+
+const { t } = useTranslation(undefined, { keyPrefix: 'pro.championPool' })
+const { t: common } = useTranslation('common')
+const {
+  resources,
+  catalog,
+  unavailable: resourcesUnavailable,
+  reload: reloadResources
+} = useChampionPoolResources()
+const league = useLeagueClientStore()
+const router = useRouter()
+const {
+  api,
+  playerTabs,
+  players,
+  identity,
+  player,
+  selected,
+  status,
+  result,
+  matches,
+  matchPage,
+  matchPageSize,
+  loading,
+  error,
+  queues,
+  position,
+  patch,
+  dates,
+  championId,
+  sort,
+  sortDirection,
+  page,
+  count,
+  sync,
+  reset,
+  refresh
+} = useChampionPool()
+useWorkspaceState(
+  'pro-champion-pool',
+  {
+    selected,
+    queues,
+    position,
+    patch,
+    dates,
+    championId,
+    sort,
+    sortDirection,
+    page,
+    matchPage,
+    matchPageSize
+  },
+  z.object({
+    selected: z.string().nullable(),
+    queues: z.array(z.number().int().positive()).max(32),
+    position: z.enum(positions).nullable(),
+    patch: z.string().max(20),
+    dates: z.tuple([z.number(), z.number()]).nullable(),
+    championId: z.number().int().positive().nullable(),
+    sort: z.enum(['games', 'winRate', 'kda', 'csPerMin', 'damageShare']),
+    sortDirection: z.enum(['asc', 'desc']),
+    page: z.number().int().positive(),
+    matchPage: z.number().int().positive(),
+    matchPageSize: z.number().int().min(1).max(100)
+  })
+)
+const route = useRoute()
+function routeChampion() {
+  if (route.name !== 'pro-champion-pool' || !route.query.champion) return
+  const id = Number(route.query.champion)
+  if (Number.isSafeInteger(id) && id > 0) championId.value = id
+}
+watch(() => route.query.champion, routeChampion, { immediate: true, flush: 'sync' })
+watch(
+  championId,
+  (value) => {
+    if (
+      route.name !== 'pro-champion-pool' ||
+      route.query.champion === undefined ||
+      String(value) === route.query.champion
+    )
+      return
+    void router.replace({
+      query: { ...route.query, champion: value === null ? undefined : String(value) }
+    })
+  },
+  { flush: 'post' }
+)
+const shareLines = computed(() => [
+  `${t('games')}: ${result.value?.filteredMatches ?? 0}`,
+  queues.value.length
+    ? queues.value.map((id) => resources.queues.name(id)).join(' · ')
+    : t('allQueues'),
+  ...[
+    patch.value,
+    position.value
+      ? position.value === 'UNKNOWN'
+        ? t('unknownPosition')
+        : common(`positions.${position.value}`)
+      : ''
+  ].filter(Boolean),
+  ...(result.value?.items ?? [])
+    .slice(0, 12)
+    .map(
+      (item) =>
+        `${resources.champions.name(item.championId ?? -1)} · ${item.games} ${t('games')} · ${item.winRate.value === null ? '—' : Math.round(item.winRate.value * 100) + '%'}`
+    )
+])
+async function retrySync() {
+  try {
+    status.value = await api.retrySync()
+  } catch {
+    error.value = 'syncFailed'
+  }
+}
+const playerOptions = computed(() =>
+  players.value.map((p) => ({ value: identity(p), label: `${p.name} · ${p.serverId}` }))
+)
+const countOptions = [100, 200, 500, 1000].map((value) => ({ value, label: String(value) }))
+const queueOptions = computed(() =>
+  [
+    ...new Set([
+      420,
+      440,
+      430,
+      400,
+      450,
+      2400,
+      480,
+      490,
+      900,
+      1900,
+      1710,
+      2300,
+      ...queues.value,
+      ...Object.keys(league.gameData.queues).map(Number)
+    ])
+  ]
+    .filter((id) => id > 0)
+    .map((id) => ({ value: id, label: resources.queues.name(id) }))
+)
+const positionOptions = computed(() =>
+  positions.map((p) => ({
+    value: p,
+    label: p === 'UNKNOWN' ? t('unknownPosition') : common(`positions.${p}`)
+  }))
+)
+const championOptions = computed(() =>
+  [
+    ...new Set([
+      ...Object.keys(league.gameData.champions).map(Number),
+      ...Object.keys(catalog.value.champions).map(Number),
+      ...(result.value?.championIds ?? []),
+      ...(championId.value ? [championId.value] : [])
+    ])
+  ]
+    .filter((id) => id > 0)
+    .map((id) => ({ value: id, label: resources.champions.name(id) }))
+)
+const dateShortcuts = computed(() =>
+  Object.fromEntries(
+    [30, 90].map((days) => [
+      t(`last${days}`),
+      () => {
+        const end = new Date()
+        end.setHours(0, 0, 0, 0)
+        const start = new Date(end)
+        start.setDate(start.getDate() - days + 1)
+        return [start.getTime(), end.getTime()] as [number, number]
+      }
+    ])
+  )
+)
+const detail = computed(() => result.value?.items.find((c) => c.championId === championId.value))
+async function cancel() {
+  try {
+    await api.cancelSync()
+  } catch {
+    error.value = 'syncFailed'
+  }
+}
+async function openPlayer(puuid: string) {
+  if (!player.value) return
+  playerTabs.createTabAndSetCurrent(puuid, player.value.serverId)
+  await router.push({ name: 'player-tabs', params: { sgpServerId: player.value.serverId, puuid } })
+}
+async function openHistory() {
+  if (!player.value || !championId.value) return
+  playerTabs.createTabAndSetCurrent(player.value.puuid, player.value.serverId, {
+    matchHistory: {
+      collectByChampionId: championId.value,
+      ...(position.value && position.value !== 'UNKNOWN'
+        ? { collectByPosition: position.value }
+        : {})
+    }
+  })
+  await router.push({
+    name: 'player-tabs',
+    params: { sgpServerId: player.value.serverId, puuid: player.value.puuid }
+  })
+}
+</script>
+
+<style scoped>
+.pool-page {
+  color: var(--la-color-text-primary);
+}
+.pool-panel {
+  background: var(--la-color-bg-primary);
+  border: 1px solid var(--la-color-popover-border);
+}
+</style>

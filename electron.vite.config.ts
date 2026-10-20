@@ -88,6 +88,7 @@ export default defineConfig({
   renderer: {
     resolve: {
       alias: {
+        '@renderer-pro': resolve('src/renderer/pro'),
         '@main-window': resolve('src/renderer/src-main-window'),
         '@aux-window': resolve('src/renderer/src-aux-window'),
         '@opgg-window': resolve('src/renderer/src-opgg-window'),

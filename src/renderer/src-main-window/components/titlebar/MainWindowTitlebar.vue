@@ -16,6 +16,7 @@
     </div>
 
     <div class="divider" :class="{ invisible: !shouldShowDivider }" />
+    <ExperienceTools />
     <CommonButtons />
 
     <div class="w-1" v-if="as.isMacOS"></div>
@@ -29,6 +30,7 @@
 </template>
 
 <script setup lang="ts">
+import ExperienceTools from '@renderer-pro/main-window/experience/ExperienceTools.vue'
 import { useAppCommonStore } from '@renderer-shared/shards/app-common/store'
 import { useLeagueClientStore } from '@renderer-shared/shards/league-client/store'
 import { useOngoingGameStore } from '@renderer-shared/shards/ongoing-game/store'

@@ -1,3 +1,5 @@
+import proEn from '@renderer-pro/shared/locales/en.yaml'
+import proZhCN from '@renderer-pro/shared/locales/zh-CN.yaml'
 import commonEn from '@shared/i18n/en/common.yaml'
 import automationEn from '@shared/i18n/en/renderer/automation.yaml'
 import auxWindowEn from '@shared/i18n/en/renderer/aux-window.yaml'
@@ -47,6 +49,7 @@ function mergeRendererResources(...resources: Record<string, unknown>[]) {
 }
 
 const rendererEn = mergeRendererResources(
+  proEn,
   shellEn,
   settingsEn,
   automationEn,
@@ -64,6 +67,7 @@ const rendererEn = mergeRendererResources(
 )
 
 const rendererZhCN = mergeRendererResources(
+  proZhCN,
   shellZhCN,
   settingsZhCN,
   automationZhCN,

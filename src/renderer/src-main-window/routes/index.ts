@@ -1,3 +1,4 @@
+import { proRoutes } from '@renderer-pro/main-window/routes'
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 import Automation from '@main-window/views/automation/Automation.vue'
@@ -10,6 +11,7 @@ import Toolkit from '@main-window/views/toolkit/Toolkit.vue'
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
+    ...proRoutes,
     {
       path: '/',
       name: 'root',

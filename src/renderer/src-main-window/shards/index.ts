@@ -1,3 +1,4 @@
+import { registerProShards } from '@renderer-pro/main-window/register'
 import { createManager } from '@renderer-shared/shards'
 import { AkariApiRenderer } from '@renderer-shared/shards/akari-api'
 import { AkariProtocolRenderer } from '@renderer-shared/shards/akari-protocol'
@@ -71,5 +72,7 @@ manager.use(SgpRenderer)
 manager.use(SimpleNotificationsRenderer)
 manager.use(StorageRenderer)
 manager.use(WindowManagerRenderer)
+
+registerProShards(manager)
 
 export { manager }
