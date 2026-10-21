@@ -10,7 +10,9 @@ it('normalizes SGP summaries and preserves missing or zero denominator metrics',
     patch: '26.20',
     csPerMin: 6,
     damageShare: 0.2,
-    outcome: 'win'
+    outcome: 'win',
+    killParticipation: 0.3,
+    visionPerMin: 0.8
   })
   summary.data.json.participants[1].totalDamageDealtToChampions = undefined as unknown as number
   expect(normalizeMatch(summary, 'player').damageShare).toBeNull()
@@ -55,6 +57,20 @@ it('does not turn a single-player LCU history into a 100% damage share', () => {
     position: 'UNKNOWN',
     csPerMin: 0,
     damageShare: null,
+    killParticipation: null,
+    visionPerMin: null,
     outcome: 'loss'
   })
+})
+
+it('does not infer missing team kills or turn absent vision into zero', () => {
+  const summary = sgpSummary()
+  summary.data.json.participants[0].visionScore = undefined as unknown as number
+  summary.data.json.participants[1].kills = undefined as unknown as number
+  expect(normalizeMatch(summary, 'player')).toMatchObject({
+    killParticipation: null,
+    visionPerMin: null
+  })
+  for (const participant of summary.data.json.participants) participant.kills = 0
+  expect(normalizeMatch(summary, 'player').killParticipation).toBeNull()
 })

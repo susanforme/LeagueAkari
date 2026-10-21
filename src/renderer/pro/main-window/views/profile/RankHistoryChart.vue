@@ -1,24 +1,34 @@
 <template>
-  <NCard size="small" :title="t('trendTitle')">
+  <component
+    :is="compact ? 'div' : NCard"
+    size="small"
+    :title="compact ? undefined : t('trendTitle')"
+    :bordered="!compact"
+    :class="{ 'compact-chart': compact }"
+  >
     <div class="flex flex-col gap-3">
-      <NRadioGroup v-model:value="metric" size="small">
+      <NRadioGroup v-if="!compact" v-model:value="metric" size="small">
         <NRadioButton value="rank">{{ t('rank') }}</NRadioButton>
         <NRadioButton value="lp">{{ t('leaguePoints') }}</NRadioButton>
       </NRadioGroup>
-      <div class="h-72">
+      <div :class="compact ? 'h-20' : 'h-72'">
         <Line
           v-if="hasRankedPoints"
           :data="data"
           :options="options"
           :aria-label="t('trendTitle')"
         />
-        <NEmpty v-else class="pt-20" :description="t('noRankedPoints')" />
+        <NEmpty
+          v-else
+          :class="compact ? 'pt-5 text-xs' : 'pt-20'"
+          :description="t('noRankedPoints')"
+        />
       </div>
-      <div class="text-xs opacity-60">{{ t('trendHelp') }}</div>
-      <NAlert v-if="trend.season === null" type="info" :show-icon="false">{{
+      <div v-if="!compact" class="text-xs opacity-60">{{ t('trendHelp') }}</div>
+      <NAlert v-if="!compact && trend.season === null" type="info" :show-icon="false">{{
         t('unknownSeasonHelp')
       }}</NAlert>
-      <div v-if="selectedPoint" class="flex flex-wrap gap-4 text-sm" aria-live="polite">
+      <div v-if="!compact && selectedPoint" class="flex flex-wrap gap-4 text-sm" aria-live="polite">
         <span>{{ new Date(selectedPoint.observedAt).toLocaleString() }}</span>
         <span
           >{{ rankLabel(selectedPoint)
@@ -28,7 +38,7 @@
         <span>{{ t('change') }}: {{ changeLabel(selectedPoint) }}</span>
       </div>
     </div>
-  </NCard>
+  </component>
 </template>
 <script setup lang="ts">
 import { useGameResourceProvider } from '@renderer-shared/providers/game-resource'
@@ -50,6 +60,8 @@ import { Line } from 'vue-chartjs'
 import { rankIndex, rankSteps } from './rank-history'
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
 const props = defineProps<{
+  compact?: boolean
+  color?: string
   trend: ProfileTrend
   selected: string | null
   rankLabel: (rank: Pick<RankPoint, 'tier' | 'division'>) => string
@@ -58,7 +70,7 @@ const props = defineProps<{
 const emit = defineEmits<{ select: [id: string] }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.profile' })
 const resources = useGameResourceProvider()
-const metric = ref<'rank' | 'lp'>('rank')
+const metric = ref<'rank' | 'lp'>(props.compact ? 'lp' : 'rank')
 const selectedPoint = computed(() =>
   props.trend.points.find((point) => point.id === props.selected)
 )
@@ -83,9 +95,12 @@ const data = computed(() => ({
             ? rankIndex(point)
             : point.leaguePoints
       ),
-      borderColor: '#5b9fe6',
-      backgroundColor: '#5b9fe6',
-      pointRadius: props.trend.points.map((point) => (point.id === props.selected ? 5 : 3)),
+      borderColor: props.color ?? '#5b9fe6',
+      backgroundColor: props.color ?? '#5b9fe6',
+      borderWidth: props.compact ? 1.5 : 2,
+      pointRadius: props.trend.points.map((point) =>
+        point.id === props.selected ? 5 : props.compact ? 2 : 3
+      ),
       pointHitRadius: 8,
       tension: 0,
       spanGaps: false,
@@ -122,6 +137,7 @@ const options = computed<ChartOptions<'line'>>(() => {
     },
     scales: {
       x: {
+        display: !props.compact,
         ticks: { color, maxTicksLimit: 6, maxRotation: 0 },
         grid: { color: grid },
         title: { display: true, text: t('recordOrder'), color }
@@ -129,6 +145,7 @@ const options = computed<ChartOptions<'line'>>(() => {
       y: {
         ticks: {
           color,
+          maxTicksLimit: props.compact ? 3 : 8,
           ...(metric.value === 'rank'
             ? {
                 stepSize: 1,

@@ -85,6 +85,7 @@ describe.runIf(!!process.versions.electron)(
       await report(a, 1, 200)
       const latest = await report(a, 2, 1000)
       const result = await loadMatchups(db, { ...query(), patch: '26.20' })
+      expect(result.missingTimelineGameIds).toEqual([2])
       expect(result.total).toBe(2)
       expect(result.excluded).toBe(1)
       expect(result.items).toHaveLength(1)

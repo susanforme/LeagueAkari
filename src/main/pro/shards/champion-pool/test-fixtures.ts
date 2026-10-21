@@ -19,6 +19,7 @@ export function sgpSummary(gameId = 1): SgpGameSummary {
           kills: 8,
           assists: 4,
           deaths: 2,
+          visionScore: 16,
           totalDamageDealtToChampions: 1000,
           totalMinionsKilled: 100,
           neutralMinionsKilled: 20,

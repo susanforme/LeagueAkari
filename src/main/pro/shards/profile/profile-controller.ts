@@ -3,6 +3,8 @@ import type { AkariLogger } from '@main/shards/logger-factory'
 import type { SgpMain } from '@main/shards/sgp'
 import { MAX_CACHED_ANALYSIS, type PlayerIdentity, type PoolMatch } from '@shared/pro/champion-pool'
 import {
+  type ProfileMatches,
+  type ProfileMatchesQuery,
   type ProfileSnapshot,
   type ProfileStatus,
   type ProfileTrend,
@@ -217,6 +219,33 @@ export class ProfileController {
       now,
       rows.length > MAX_CACHED_ANALYSIS
     )
+  }
+  async matches(query: ProfileMatchesQuery): Promise<ProfileMatches> {
+    const database = this._database()
+    const parameters: (string | number)[] = [query.serverId, query.puuid]
+    const conditions = ['serverId = ?', 'puuid = ?']
+    if (query.championId !== null) {
+      conditions.push("json_extract(projection, '$.championId') = ?")
+      parameters.push(query.championId)
+    }
+    if (query.from !== null) {
+      conditions.push('startedAt >= ?')
+      parameters.push(query.from)
+    }
+    if (query.to !== null) {
+      conditions.push('startedAt < ?')
+      parameters.push(query.to)
+    }
+    const where = conditions.join(' AND ')
+    const [{ total }] = await database.query(
+      `SELECT COUNT(*) total FROM PoolMatches WHERE ${where}`,
+      parameters
+    )
+    const rows: { summary: string }[] = await database.query(
+      `SELECT summary FROM PoolMatches WHERE ${where} ORDER BY startedAt DESC, gameId DESC LIMIT ? OFFSET ?`,
+      [...parameters, query.pageSize, (query.page - 1) * query.pageSize]
+    )
+    return { items: rows.map((row) => JSON.parse(row.summary)), total }
   }
   async dispose() {
     this._disposed = true

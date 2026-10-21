@@ -4,6 +4,16 @@ import { z } from 'zod'
 export const CHAMPION_POOL_NAMESPACE = 'pro-champion-pool-main'
 export const CHAMPION_POOL_ROUTE = 'pro-champion-pool'
 export const MAX_CACHED_ANALYSIS = 10_000
+export const poolSortFields = [
+  'games',
+  'winRate',
+  'kda',
+  'csPerMin',
+  'damageShare',
+  'killParticipation',
+  'visionPerMin',
+  'lastPlayed'
+] as const
 export const positions = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY', 'UNKNOWN'] as const
 
 export const playerSchema = z.object({
@@ -29,7 +39,7 @@ export const querySchema = playerSchema
     from: z.number().int().nonnegative().nullable().default(null),
     to: z.number().int().nonnegative().nullable().default(null),
     championId: z.number().int().positive().nullable().default(null),
-    sort: z.enum(['games', 'winRate', 'kda', 'csPerMin', 'damageShare']).default('games'),
+    sort: z.enum(poolSortFields).default('games'),
     sortDirection: z.enum(['asc', 'desc']).default('desc'),
     page: z.number().int().min(1).max(10_000).default(1),
     pageSize: z.number().int().min(1).max(100).default(20)
@@ -63,6 +73,8 @@ export interface PoolMatch {
   deaths: number | null
   assists: number | null
   csPerMin: number | null
+  killParticipation: number | null
+  visionPerMin: number | null
   damageShare: number | null
 }
 export interface SampleMetric {
@@ -77,8 +89,16 @@ export interface ChampionStats {
   kda: SampleMetric
   csPerMin: SampleMetric
   damageShare: SampleMetric
+  killParticipation: SampleMetric
+  visionPerMin: SampleMetric
+  position: (typeof positions)[number]
+  lastPlayed: number | null
 }
 export interface PoolResult {
+  overview: ChampionStats
+  champions: ChampionStats[]
+  positionDistribution: { position: (typeof positions)[number]; games: number }[]
+  daily: { day: number; games: number; wins: number; decided: number }[]
   items: ChampionStats[]
   topChampions: { championId: number | null; games: number }[]
   championIds: number[]

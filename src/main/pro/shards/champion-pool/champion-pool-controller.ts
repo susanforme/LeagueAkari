@@ -78,12 +78,20 @@ export class ChampionPoolController {
       'SELECT COUNT(*) AS count FROM PoolMatches WHERE serverId = ? AND puuid = ?',
       parameters
     )
-    const rows: { projection: string }[] = await database.query(
-      'SELECT projection FROM PoolMatches WHERE serverId = ? AND puuid = ? ORDER BY startedAt DESC, gameId DESC LIMIT ?',
+    const rows: { projection: string; summary: string }[] = await database.query(
+      'SELECT projection, summary FROM PoolMatches WHERE serverId = ? AND puuid = ? ORDER BY startedAt DESC, gameId DESC LIMIT ?',
       [...parameters, MAX_CACHED_ANALYSIS]
     )
     return aggregatePool(
-      rows.map((r) => JSON.parse(r.projection) as PoolMatch),
+      rows.map((r) => {
+        const projection: PoolMatch = JSON.parse(r.projection)
+        if (projection.killParticipation === undefined || projection.visionPerMin === undefined) {
+          const current = normalizeMatch(JSON.parse(r.summary), query.puuid)
+          projection.killParticipation = current.killParticipation
+          projection.visionPerMin = current.visionPerMin
+        }
+        return projection
+      }),
       query,
       count
     )
@@ -289,7 +297,9 @@ export class ChampionPoolController {
               'deaths',
               'assists',
               'csPerMin',
-              'damageShare'
+              'damageShare',
+              'killParticipation',
+              'visionPerMin'
             ] as const) {
               projection[key] ??= previous[key]
             }

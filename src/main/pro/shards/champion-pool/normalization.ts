@@ -44,6 +44,14 @@ export function normalizeMatch(summary: LcuOrSgpGameSummary, puuid: string): Poo
     teamDamage.length === 5 && teamDamage.every((n) => n !== null)
       ? teamDamage.reduce<number>((sum, n) => sum + n!, 0)
       : null
+  const teamKills = team.map((p) => numberOrNull(p.stats.kills))
+  const totalKills =
+    teamKills.length === 5 && teamKills.every((n) => n !== null)
+      ? teamKills.reduce<number>((sum, n) => sum + n!, 0)
+      : null
+  const kills = numberOrNull(stats.kills),
+    assists = numberOrNull(stats.assists)
+  const vision = numberOrNull(stats.visionScore)
   const damage = numberOrNull(stats.totalDamageDealtToChampions)
   const laneCs = numberOrNull(stats.totalMinionsKilled)
   const jungleCs = numberOrNull(stats.neutralMinionsKilled)
@@ -70,6 +78,12 @@ export function normalizeMatch(summary: LcuOrSgpGameSummary, puuid: string): Poo
       laneCs !== null && jungleCs !== null && basic.gameDuration > 0
         ? (laneCs + jungleCs) / (basic.gameDuration / 60)
         : null,
+    killParticipation:
+      kills !== null && assists !== null && totalKills !== null && totalKills > 0
+        ? (kills + assists) / totalKills
+        : null,
+    visionPerMin:
+      vision !== null && basic.gameDuration > 0 ? vision / (basic.gameDuration / 60) : null,
     damageShare:
       damage !== null && denominator !== null && denominator > 0 ? damage / denominator : null
   }

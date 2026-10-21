@@ -4,6 +4,8 @@ import type { PlayerIdentity } from '@shared/pro/champion-pool'
 import {
   PROFILE_NAMESPACE,
   type ProfileActivity,
+  type ProfileMatches,
+  type ProfileMatchesQuery,
   type ProfileSnapshot,
   type ProfileStatus,
   type ProfileTrend,
@@ -25,6 +27,9 @@ export class ProfileRenderer {
   }
   activity(player: PlayerIdentity) {
     return this._ipc.call<ProfileActivity>(PROFILE_NAMESPACE, 'activity', player)
+  }
+  matches(query: ProfileMatchesQuery) {
+    return this._ipc.call<ProfileMatches>(PROFILE_NAMESPACE, 'matches', query)
   }
   trend(query: ProfileTrendQuery) {
     return this._ipc.call<ProfileTrend>(PROFILE_NAMESPACE, 'trend', query)

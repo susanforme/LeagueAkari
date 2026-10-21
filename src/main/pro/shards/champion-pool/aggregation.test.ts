@@ -17,13 +17,23 @@ const match = (overrides: Partial<PoolMatch> = {}): PoolMatch => ({
   assists: 4,
   csPerMin: 6,
   damageShare: 0.2,
+  killParticipation: 0.6,
+  visionPerMin: 0.8,
   ...overrides
 })
 const query = (overrides = {}) =>
   querySchema.parse({ serverId: 'EUW1', puuid: 'player', ...overrides })
 
 describe('champion pool statistics', () => {
-  it.each(['games', 'winRate', 'kda', 'csPerMin', 'damageShare'] as const)(
+  it.each([
+    'games',
+    'winRate',
+    'kda',
+    'csPerMin',
+    'damageShare',
+    'killParticipation',
+    'visionPerMin'
+  ] as const)(
     'sorts %s in either direction before pagination, keeping missing values last',
     (sort) => {
       const matches = [
@@ -34,11 +44,21 @@ describe('champion pool statistics', () => {
           assists: 0,
           outcome: 'loss',
           csPerMin: 1,
-          damageShare: 0.1
+          damageShare: 0.1,
+          killParticipation: 0.1,
+          visionPerMin: 0.1
         }),
         match({ championId: 2 }),
         match({ gameId: 2, championId: 2 }),
-        match({ championId: 3, kills: null, outcome: 'unknown', csPerMin: null, damageShare: null })
+        match({
+          championId: 3,
+          killParticipation: null,
+          visionPerMin: null,
+          kills: null,
+          outcome: 'unknown',
+          csPerMin: null,
+          damageShare: null
+        })
       ]
       const ids = (sortDirection: 'asc' | 'desc') =>
         [1, 2, 3].map(
@@ -147,4 +167,31 @@ it('does not confuse absent SGP support, pending credentials, or a different ser
   expect(() => selectHistorySource({ ...options, tokenReady: false })).toThrow('waitingToken')
   expect(() => selectHistorySource({ ...options, targetServer: 'NA1' })).toThrow('differentServer')
   expect(() => selectHistorySource({ ...options, connected: false })).toThrow('disconnected')
+})
+
+it('aggregates overview and daily outcomes before pagination, including unknown roles and outcomes', () => {
+  const result = aggregatePool(
+    [
+      match(),
+      match({
+        gameId: 2,
+        championId: 64,
+        outcome: 'unknown',
+        position: 'UNKNOWN',
+        killParticipation: null
+      })
+    ],
+    query({ pageSize: 1, page: 2 }),
+    2
+  )
+  expect(result.items).toHaveLength(1)
+  expect(result.champions).toHaveLength(2)
+  expect(result.overview.games).toBe(2)
+  expect(result.overview.killParticipation).toEqual({
+    value: 0.6,
+    samples: 1,
+    excluded: { missing: 1 }
+  })
+  expect(result.daily[0]).toMatchObject({ games: 2, wins: 1, decided: 1 })
+  expect(result.positionDistribution).toHaveLength(2)
 })

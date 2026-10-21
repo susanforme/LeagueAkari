@@ -27,6 +27,7 @@ export async function loadMatchups(
      ) WHERE m.serverId=? AND m.puuid=? ORDER BY m.startedAt DESC,m.gameId DESC LIMIT ?`,
     [REVIEW_VERSION, query.serverId, query.puuid, MAX_CACHED_ANALYSIS + 1]
   )
+  const missingTimelineGameIds: number[] = []
   const groups = new Map<number, MatchupStats>()
   const matches: MatchupResult['matches'] = []
   let excluded = 0
@@ -86,6 +87,9 @@ export async function loadMatchups(
       row.opponentId === opponent.participantId
         ? checkpoints.find((p) => p.target === 600000)?.point
         : null
+    if (basic.gameDuration >= 600 && (!point || point.goldDiff === null || point.csDiff === null)) {
+      missingTimelineGameIds.push(match.gameId)
+    }
     add(stats.goldDiff10, point?.goldDiff ?? null)
     add(stats.csDiff10, point?.csDiff ?? null)
     if (query.opponentId === opponent.championId)
@@ -100,6 +104,7 @@ export async function loadMatchups(
     (a, b) => b.games - a.games || a.opponentId - b.opponentId
   )
   return {
+    missingTimelineGameIds,
     items,
     total: items.reduce((sum, item) => sum + item.games, 0),
     excluded,

@@ -1,7 +1,8 @@
+import type { AkariIpcMain } from '@main/shards/ipc'
 import type { LeagueClientMain } from '@main/shards/league-client'
 import type { AkariLogger } from '@main/shards/logger-factory'
 import type { SgpMain } from '@main/shards/sgp'
-import { profileTrendSchema } from '@shared/pro/profile'
+import { profileMatchesSchema, profileTrendSchema } from '@shared/pro/profile'
 import { RadixEventEmitter } from '@shared/utils/event-emitter'
 import { observable, runInAction } from 'mobx'
 import { DataSource } from 'typeorm'
@@ -9,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { sgpSummary } from '../champion-pool/test-fixtures'
 import { initializeProDatabase } from '../storage/database-lifecycle'
+import { registerProfileHandlers } from './ipc-handlers'
 import { ProfileController } from './profile-controller'
 
 describe.runIf(!!process.versions.electron)('personal rank snapshots', () => {
@@ -162,6 +164,58 @@ describe.runIf(!!process.versions.electron)('personal rank snapshots', () => {
     expect((await controller.trend({ ...query, puuid: 'someone-else' })).points).toEqual([])
     expect((await controller.trend({ ...query, season: 1999 })).points).toEqual([])
     expect(profileTrendSchema.safeParse({ ...query, queue: 'RANKED_TFT' }).success).toBe(false)
+  })
+  it('paginates matches by account, champion and a half-open date range', async () => {
+    for (const [serverId, puuid, gameId, startedAt, championId] of [
+      ['EUW1', 'player', 1, 100, 103],
+      ['EUW1', 'player', 2, 200, 103],
+      ['EUW1', 'player', 3, 300, 103],
+      ['EUW1', 'player', 4, 200, 222],
+      ['NA1', 'player', 5, 200, 103],
+      ['EUW1', 'other', 6, 200, 103]
+    ] as const) {
+      await source.query('INSERT INTO PoolMatches VALUES (?, ?, ?, ?, ?, ?)', [
+        serverId,
+        puuid,
+        gameId,
+        startedAt,
+        JSON.stringify({ championId }),
+        JSON.stringify(sgpSummary(gameId))
+      ])
+    }
+    const query = profileMatchesSchema.parse({
+      serverId: 'EUW1',
+      puuid: 'player',
+      championId: 103,
+      from: 100,
+      to: 300,
+      pageSize: 1
+    })
+    const handlers = new Map<string, (event: unknown, input: unknown) => unknown>()
+    registerProfileHandlers(
+      {
+        onCall: (
+          _namespace: string,
+          name: string,
+          handler: (event: unknown, input: unknown) => unknown
+        ) => handlers.set(name, handler)
+      } as unknown as AkariIpcMain,
+      controller
+    )
+    const matches = (input: unknown) => handlers.get('matches')!(null, input)
+    expect(() => matches({ ...query, pageSize: 1000 })).toThrow()
+    const first = (await matches(query)) as Awaited<ReturnType<ProfileController['matches']>>
+    expect(first.total).toBe(2)
+    expect(first.items.map((item) => item.gameId)).toEqual([2])
+    expect(
+      (await controller.matches({ ...query, page: 2 })).items.map((item) => item.gameId)
+    ).toEqual([1])
+    expect(
+      (await controller.matches(profileMatchesSchema.parse({ serverId: 'EUW1', puuid: 'player' })))
+        .total
+    ).toBe(4)
+    expect(profileMatchesSchema.safeParse({ ...query, from: 300 }).success).toBe(false)
+    expect(profileMatchesSchema.safeParse({ ...query, pageSize: 1000 }).success).toBe(false)
   })
   it('reads recent activity for only the selected account and region with source-specific durations', async () => {
     const startedAt = Date.now() - 86_400_000

@@ -1,9 +1,36 @@
 <template>
-  <NCard size="small" :title="t('title')">
+  <NCard
+    size="small"
+    :title="t('title')"
+    :style="{ background: 'var(--pool-surface)', borderColor: 'var(--pool-border)' }"
+  >
     <template #header-extra
-      ><NButton size="small" :loading="loading" @click="load">{{ t('refresh') }}</NButton></template
+      ><NButton size="small" :loading="loading" :disabled="hydrating" @click="load">{{
+        t('refresh')
+      }}</NButton></template
     >
     <NAlert v-if="error" type="error">{{ t('failed') }}</NAlert>
+    <div
+      v-if="result?.missingTimelineGameIds?.length"
+      class="mb-3 flex flex-wrap items-center gap-3"
+    >
+      <span class="text-xs opacity-70">{{
+        poolT('timelineCoverage', { count: result.missingTimelineGameIds.length })
+      }}</span>
+      <NButton v-if="!hydrating" size="tiny" :disabled="!connected" @click="hydrate">{{
+        poolT('fillTimelines')
+      }}</NButton>
+      <template v-else
+        ><span class="text-xs">{{
+          poolT('timelineProgress', { count: completed, total: batchSize })
+        }}</span
+        ><NButton size="tiny" @click="stopHydration">{{ poolT('stop') }}</NButton></template
+      >
+      <span v-if="!connected" class="text-xs opacity-60">{{ poolT('disconnected') }}</span>
+    </div>
+    <NAlert v-if="hydrationFailed" class="mb-3" type="warning">{{
+      poolT('detailsUnavailable')
+    }}</NAlert>
     <NSpin :show="loading">
       <div class="flex flex-col gap-3">
         <NAlert v-if="result?.truncated" type="warning">{{ poolT('truncated') }}</NAlert>
@@ -16,14 +43,31 @@
             <thead>
               <tr>
                 <th>{{ t('opponent') }}</th>
-                <th>{{ poolT('games') }}</th>
-                <th>{{ poolT('winRate') }}</th>
-                <th>{{ t('gold10') }}</th>
-                <th>{{ t('cs10') }}</th>
+                <th>
+                  <NButton text size="tiny" @click="sortRows('games')"
+                    >{{ poolT('games') }}
+                    {{ sortKey === 'games' ? (ascending ? '↑' : '↓') : '↕' }}</NButton
+                  >
+                </th>
+                <th>
+                  <NButton text size="tiny" @click="sortRows('winRate')"
+                    >{{ poolT('winRate') }} ↕︎</NButton
+                  >
+                </th>
+                <th>
+                  <NButton text size="tiny" @click="sortRows('goldDiff10')"
+                    >{{ t('gold10') }} ↕︎</NButton
+                  >
+                </th>
+                <th>
+                  <NButton text size="tiny" @click="sortRows('csDiff10')"
+                    >{{ t('cs10') }} ↕︎</NButton
+                  >
+                </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in result?.items" :key="row.opponentId">
+              <tr v-for="row in sortedItems" :key="row.opponentId">
                 <td>
                   <NButton
                     text
@@ -116,6 +160,8 @@ import {
   onDeactivated,
   onScopeDispose
 } from 'vue'
+import { useLeagueClientStore } from '@renderer-shared/shards/league-client/store'
+import { ReviewRenderer } from '../../../shared/shards/review'
 import { Bolt } from '@vicons/tabler'
 import { useRouter } from 'vue-router'
 import {
@@ -134,7 +180,7 @@ import { useInstance } from '@renderer-shared/shards'
 import { useGameResourceProvider } from '@renderer-shared/providers/game-resource'
 import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
 import type { PoolMatchQuery } from '@shared/pro/champion-pool'
-import type { MatchupResult } from '@shared/pro/champion-pool/matchups'
+import type { MatchupResult, MatchupStats } from '@shared/pro/champion-pool/matchups'
 import { NOTEBOOK_ROUTE } from '@shared/pro/notebook'
 import { REVIEW_ROUTE } from '@shared/pro/review'
 import { ChampionPoolRenderer } from '../../../shared/shards/champion-pool'
@@ -151,12 +197,72 @@ const result = shallowRef<MatchupResult | null>(null),
   page = ref(1),
   loading = ref(false),
   error = ref(false)
+const sortKey = ref<'games' | 'winRate' | 'goldDiff10' | 'csDiff10'>('games'),
+  ascending = ref(false)
+function sortRows(key: typeof sortKey.value) {
+  ascending.value = sortKey.value === key ? !ascending.value : false
+  sortKey.value = key
+}
+const sortedItems = computed(() =>
+  (result.value?.items ?? []).toSorted((a, b) => {
+    const value = (row: MatchupStats) =>
+      sortKey.value === 'games' ? row.games : row[sortKey.value].value
+    const av = value(a),
+      bv = value(b)
+    if (av === null) return bv === null ? a.opponentId - b.opponentId : 1
+    if (bv === null) return -1
+    return (ascending.value ? av - bv : bv - av) || a.opponentId - b.opponentId
+  })
+)
 const goldScale = computed(() =>
   Math.max(1, ...(result.value?.items ?? []).map((row) => Math.abs(row.goldDiff10.value ?? 0)))
 )
 const csScale = computed(() =>
   Math.max(1, ...(result.value?.items ?? []).map((row) => Math.abs(row.csDiff10.value ?? 0)))
 )
+const review = useInstance(ReviewRenderer)
+const league = useLeagueClientStore()
+const connected = computed(() => league.isConnected)
+const hydrating = ref(false),
+  hydrationFailed = ref(false),
+  completed = ref(0),
+  batchSize = ref(0)
+let hydrationGeneration = 0
+function stopHydration() {
+  hydrationGeneration++
+  hydrating.value = false
+}
+async function hydrate() {
+  if (hydrating.value || !connected.value || !active) return
+  const ids = result.value?.missingTimelineGameIds.slice(0, 20) ?? []
+  if (!ids.length) return
+  const current = ++hydrationGeneration
+  const player = { serverId: props.query.serverId, puuid: props.query.puuid }
+  hydrating.value = true
+  hydrationFailed.value = false
+  completed.value = 0
+  batchSize.value = ids.length
+  try {
+    for (const gameId of ids) {
+      if (current !== hydrationGeneration || !active) return
+      const report = await review.open({ ...player, gameId, refresh: true })
+      if (current !== hydrationGeneration) return
+      completed.value++
+      const point = report.analysis.checkpoints.find((p) => p.target === 600000)?.point
+      if (!point || point.goldDiff === null || point.csDiff === null) {
+        hydrationFailed.value = true
+        break
+      }
+    }
+  } catch {
+    if (current === hydrationGeneration) hydrationFailed.value = true
+  } finally {
+    if (current === hydrationGeneration) {
+      hydrating.value = false
+      await load()
+    }
+  }
+}
 let active = false,
   generation = 0
 async function load() {
@@ -182,6 +288,8 @@ watch(
   () => props.query,
   () => {
     generation++
+    stopHydration()
+    hydrationFailed.value = false
     result.value = null
     opponentId.value = null
     page.value = 1
@@ -199,11 +307,14 @@ watch([opponentId, page], () => {
 function activate() {
   if (!active) {
     active = true
-    void load()
+    void load().then(() => {
+      if (active) void hydrate()
+    })
   }
 }
 function deactivate() {
   active = false
+  stopHydration()
   generation++
   loading.value = false
 }

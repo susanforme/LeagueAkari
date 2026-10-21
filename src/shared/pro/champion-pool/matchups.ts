@@ -14,6 +14,7 @@ export interface MatchupStats {
   csDiff10: SampleMetric
 }
 export interface MatchupResult {
+  missingTimelineGameIds: number[]
   items: MatchupStats[]
   total: number
   excluded: number

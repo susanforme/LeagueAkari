@@ -1,5 +1,29 @@
 pro:
   championPool:
+    overview: '总览'
+    trends: '趋势'
+    championsPlayed: '使用英雄'
+    selectedFilters: '当前筛选范围'
+    mostPlayed: '最常使用'
+    sampleScope: '当前统计 {{count}} 场'
+    positionDistribution: '位置分布'
+    winRateVsGames: '胜率与场次'
+    performanceRadar: '表现雷达'
+    radarScope: '个人场均表现 · 查看刻度'
+    radarScale: '各轴上限：KDA 6、补刀/分 10、伤害占比 50%、视野/分 2、参团率 100%。这不是段位评分；缺少任一指标时不绘制轮廓。'
+    dailyPerformance: '每日表现'
+    selectDay: '点击日期筛选 · 绿色表示胜场'
+    killParticipation: '参团率'
+    visionPerMin: '视野/分'
+    lastPlayed: '最近使用'
+    timelineCoverage: '还有 {{count}} 场可补齐 10 分钟对位数据'
+    fillTimelines: '补齐时间线（最多 20 场）'
+    timelineProgress: '已处理 {{count}} / {{total}} 场'
+    stop: '停止补取'
+    minute: '分钟'
+    championDamage: '对英雄伤害'
+    expandMatch: '展开对局详情'
+    collapseMatch: '收起对局详情'
     title: 英雄池
     player: 玩家
     selectPlayer: 选择玩家
@@ -273,6 +297,39 @@ pro:
       ITEM_SOLD: 出售装备
       ITEM_UNDO: 撤销装备操作
   profile:
+    dashboard:
+      showLess: 收起
+      connected: 当前连接账号
+      wins: 胜场
+      losses: 负场
+      recentCaptures: 胜点趋势 · 最近 20 次记录
+      viewHistory: 查看历史
+      previousRank: 上赛季段位
+      peakRank: 本赛季最高
+      recentMatches: 最近对局
+      champions: 常用英雄
+      last30Days: 近 30 天
+      viewAll: 查看全部
+      viewMatches: 查看对应对局
+      matches: 对局列表
+      noMatches: 此筛选下暂无已同步对局
+      sync: 同步战绩
+      loadFailed: 加载失败，请重试
+      result: 结果
+      champion: 英雄
+      gold: 金币
+      queue: 队列
+      review: 赛后复盘
+      reviewMatch: '复盘对局 {{id}}'
+      unknownChampion: 未知英雄
+      noBaseline: 无可比记录
+      dailyWinRate: 每日胜率
+      results:
+        win: 胜利
+        loss: 失败
+        remake: 重开
+        abort: 中止
+        unknown: 未知
     activity:
       heatmap: 近 30 天对局日历
       heatmapHelp: 颜色越深，对局越多。悬停或选择日期查看详情。
@@ -295,7 +352,7 @@ pro:
       period: 统计周期
       recentWeek: 最近 7 天
       previousWeek: 此前 7 天
-      change: 较此前 7 天
+      change: 最近 7 天较此前 7 天
       results: '{{wins}} 胜 / {{losses}} 负'
       unknownResults: '{{count}} 场结果未知'
       durationSamples: '{{count}} 场有时长记录'

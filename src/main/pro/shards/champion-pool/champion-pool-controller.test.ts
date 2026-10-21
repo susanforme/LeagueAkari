@@ -52,6 +52,22 @@ describe.runIf(!!process.versions.electron)('champion pool synchronization', () 
     await database.destroy()
   })
 
+  it('fills new metrics from cached summaries without losing richer saved projections', async () => {
+    history.mockResolvedValue(response([sgpSummary()]))
+    controller.start(request)
+    await finished()
+    const [row] = await database.query('SELECT projection FROM PoolMatches')
+    const projection = JSON.parse(row.projection)
+    delete projection.killParticipation
+    delete projection.visionPerMin
+    projection.damageShare = 0.4
+    await database.query('UPDATE PoolMatches SET projection=?', [JSON.stringify(projection)])
+    const result = await controller.query(query)
+    expect(result.overview.killParticipation.value).toBe(0.3)
+    expect(result.items[0].visionPerMin.value).toBe(0.8)
+    expect(result.items[0].damageShare.value).toBe(0.4)
+  })
+
   it('paginates all matching champion games past 20 with stable order and isolated filters', async () => {
     const games = Array.from({ length: 50 }, (_, index) => {
       const game = sgpSummary(index + 1)

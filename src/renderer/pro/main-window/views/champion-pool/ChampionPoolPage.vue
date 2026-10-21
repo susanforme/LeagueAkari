@@ -141,14 +141,13 @@
           </NSpin>
         </template>
         <template v-else>
-          <div v-if="result?.topChampions.length" class="pool-panel rounded p-4">
-            <div class="mb-2 font-bold">{{ t('usage') }}</div>
-            <ChampionUsageChart
-              :champions="result.topChampions"
-              :label="t('games')"
-              @select="championId = $event"
-            />
-          </div>
+          <PoolOverview
+            v-if="result"
+            :result="result"
+            @select="championId = $event"
+            @position="position = $event"
+            @day="dates = [$event, $event]"
+          />
           <ChampionPoolTable
             :items="result?.items ?? []"
             :loading="loading"
@@ -177,7 +176,7 @@
 
 <script setup lang="ts">
 import { useLeagueClientStore } from '@renderer-shared/shards/league-client/store'
-import { positions } from '@shared/pro/champion-pool'
+import { positions, poolSortFields } from '@shared/pro/champion-pool'
 import { PeopleTeam24Regular } from '@vicons/fluent'
 import { useTranslation } from 'i18next-vue'
 import {
@@ -201,7 +200,7 @@ import ShareCard from '../../../shared/components/share-card/ShareCard.vue'
 
 import ChampionDetail from './ChampionDetail.vue'
 import ChampionPoolTable from './ChampionPoolTable.vue'
-import ChampionUsageChart from './ChampionUsageChart.vue'
+import PoolOverview from './PoolOverview.vue'
 import { useChampionPool } from './useChampionPool'
 import { useChampionPoolResources } from './useChampionPoolResources'
 
@@ -265,7 +264,7 @@ useWorkspaceState(
     patch: z.string().max(20),
     dates: z.tuple([z.number(), z.number()]).nullable(),
     championId: z.number().int().positive().nullable(),
-    sort: z.enum(['games', 'winRate', 'kda', 'csPerMin', 'damageShare']),
+    sort: z.enum(poolSortFields),
     sortDirection: z.enum(['asc', 'desc']),
     page: z.number().int().positive(),
     matchPage: z.number().int().positive(),
@@ -412,9 +411,10 @@ async function openHistory() {
 <style scoped>
 .pool-page {
   color: var(--la-color-text-primary);
+  --pool-surface: color-mix(in srgb, var(--la-card-surface-95), white 55%);
+  --pool-border: rgb(var(--la-card-border-rgb) / 0.09);
 }
-.pool-panel {
-  background: var(--la-color-bg-primary);
-  border: 1px solid var(--la-color-popover-border);
+[data-theme='dark'] .pool-page {
+  --pool-surface: color-mix(in srgb, var(--la-card-surface-95), white 4%);
 }
 </style>

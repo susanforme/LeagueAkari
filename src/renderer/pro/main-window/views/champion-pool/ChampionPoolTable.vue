@@ -6,9 +6,9 @@
     :loading="loading"
     :row-key="(row: ChampionStats) => row.championId ?? 0"
     :bordered="false"
-    :single-line="false"
+    :single-line="true"
     size="small"
-    :scroll-x="700"
+    :scroll-x="1200"
     @update:sorter="updateSorter"
   />
 </template>
@@ -40,6 +40,7 @@ const emit = defineEmits<{
   sort: [field: PoolQuery['sort'], direction: PoolQuery['sortDirection']]
 }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.championPool' })
+const { t: common } = useTranslation('common')
 const resources = useGameResourceProvider()
 function sortable(
   key: PoolQuery['sort']
@@ -74,18 +75,71 @@ const columns = computed<DataTableColumns<ChampionStats>>(() => [
     )
   },
   { title: t('games'), key: 'games', width: 90, ...sortable('games') },
-  ...(['winRate', 'kda', 'csPerMin', 'damageShare'] as const).map((key) => ({
+  ...(
+    ['winRate', 'kda', 'csPerMin', 'damageShare', 'killParticipation', 'visionPerMin'] as const
+  ).map((key) => ({
     title: t(key),
     key,
     width: 110,
     ...sortable(key),
     render: (row: ChampionStats) => (
-      <MetricValue
-        metric={row[key]}
-        ratio={key === 'winRate' || key === 'damageShare'}
-        kda={key === 'kda'}
-      />
+      <div class="table-metric">
+        <MetricValue
+          metric={row[key]}
+          ratio={key === 'winRate' || key === 'damageShare' || key === 'killParticipation'}
+          kda={key === 'kda'}
+        />
+        <span class="metric-bar" aria-hidden="true">
+          <i
+            style={{
+              width: `${Math.min(100, (Math.max(0, row[key].value ?? 0) / { winRate: 1, kda: 6, csPerMin: 10, damageShare: 0.5, killParticipation: 1, visionPerMin: 2 }[key]) * 100)}%`
+            }}
+          />
+        </span>
+      </div>
     )
-  }))
+  })),
+  {
+    title: t('position'),
+    key: 'position',
+    width: 95,
+    render: (row) =>
+      row.position === 'UNKNOWN' ? t('unknownPosition') : common(`positions.${row.position}`)
+  },
+  {
+    title: t('lastPlayed'),
+    key: 'lastPlayed',
+    width: 130,
+    ...sortable('lastPlayed'),
+    render: (row) => (row.lastPlayed === null ? '—' : new Date(row.lastPlayed).toLocaleDateString())
+  }
 ])
 </script>
+
+<style scoped>
+:deep(.table-metric) {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+:deep(.metric-bar) {
+  display: block;
+  width: 72px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--la-card-muted-surface);
+}
+:deep(.metric-bar i) {
+  display: block;
+  height: 100%;
+  background: #24a887;
+  opacity: 0.8;
+}
+:deep(.n-data-table-th) {
+  font-size: 12px;
+}
+:deep(.n-data-table-td) {
+  font-size: 12px;
+}
+</style>

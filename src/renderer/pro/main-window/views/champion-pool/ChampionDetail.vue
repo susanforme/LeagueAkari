@@ -1,7 +1,9 @@
 <template>
   <div class="flex flex-col gap-4">
-    <div class="flex items-center justify-between">
-      <NButton size="small" @click="$emit('back')">{{ t('back') }}</NButton>
+    <div class="detail-toolbar">
+      <NButton class="mr-auto" size="small" quaternary @click="$emit('back')">{{
+        t('back')
+      }}</NButton>
       <NButton
         size="small"
         @click="router.push({ name: NOTEBOOK_ROUTE, query: { champion: champion.championId } })"
@@ -9,24 +11,43 @@
       >
       <NButton size="small" secondary @click="$emit('history')">{{ t('openHistory') }}</NButton>
     </div>
-    <div class="flex flex-wrap items-center gap-5">
-      <ChampionIcon :champion-id="champion.championId ?? -1" class="size-14! rounded" />
-      <span class="text-base font-bold">{{
-        resources.champions.name(champion.championId ?? -1)
-      }}</span>
-      <div class="flex flex-col gap-1">
-        <span class="text-xs opacity-60">{{ t('games') }}</span
-        >{{ champion.games }}
+    <section class="champion-summary">
+      <div class="champion-identity">
+        <ChampionIcon :champion-id="champion.championId ?? -1" class="size-18! rounded" />
+        <div>
+          <h2>{{ resources.champions.name(champion.championId ?? -1) }}</h2>
+          <div class="identity-tags">
+            <span>{{
+              champion.position === 'UNKNOWN'
+                ? t('unknownPosition')
+                : common(`positions.${champion.position}`)
+            }}</span
+            ><span v-if="query?.patch">{{ t('patch') }} {{ query.patch }}</span
+            ><span>{{
+              query?.queueIds.length
+                ? query.queueIds.map((id) => resources.queues.name(id)).join(' · ')
+                : t('allQueues')
+            }}</span>
+          </div>
+        </div>
       </div>
-      <div v-for="key of metricKeys" :key="key" class="flex flex-col gap-1">
-        <span class="text-xs opacity-60">{{ t(key) }}</span>
-        <MetricValue
-          :metric="champion[key]"
-          :ratio="key === 'winRate' || key === 'damageShare'"
-          :kda="key === 'kda'"
-        />
+      <div class="summary-metric">
+        <strong>{{ champion.games }}</strong
+        ><small>{{ t('games') }}</small>
       </div>
-    </div>
+      <div v-for="key in metricKeys" :key="key" class="summary-metric">
+        <strong
+          ><MetricValue
+            :metric="champion[key]"
+            :ratio="key === 'winRate' || key === 'damageShare' || key === 'killParticipation'"
+            :kda="key === 'kda'" /></strong
+        ><small>{{ t(key) }}</small>
+      </div>
+    </section>
+    <NAlert v-if="assetsUnavailable" type="warning"
+      >{{ t('resourcesUnavailable') }}
+      <NButton text size="tiny" @click="reloadAssets">{{ t('retry') }}</NButton></NAlert
+    >
     <MatchupPanel v-if="query" :query="query" />
     <div class="flex items-center justify-between gap-3">
       <span class="font-bold">{{ t('matchHistory') }}</span>
@@ -53,7 +74,12 @@
           :key="`${player.serverId}:${player.puuid}:${game.gameId}`"
           class="flex flex-col gap-1"
         >
-          <div class="flex justify-end gap-2">
+          <PoolMatchRow
+            :summary="game"
+            :puuid="player.puuid"
+            :expanded="!!expanded[game.gameId]"
+            @update:expanded="expanded[game.gameId] = $event"
+          >
             <MatchShare :summary="game" :puuid="player.puuid" />
             <NButton
               size="tiny"
@@ -73,8 +99,10 @@
               @click="createBuild(game)"
               >{{ notebookT('fromMatch') }}</NButton
             >
-          </div>
+          </PoolMatchRow>
           <MatchCard
+            v-if="expanded[game.gameId]"
+            :is-expanded="true"
             :summary="game"
             :puuid="player.puuid"
             :hide-privacy="app.settings.streamerMode"
@@ -91,10 +119,11 @@
 </template>
 
 <script setup lang="ts">
+import PoolMatchRow from './PoolMatchRow.vue'
 import MatchShare from '../../../shared/components/share-card/MatchShare.vue'
 import MatchCard from '@renderer-shared/components/match-card/MatchCard.vue'
 import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
-import { useGameResourceProvider } from '@renderer-shared/providers/game-resource'
+import { useNotebookResources } from '../notebook/useNotebookResources'
 import { useInstance } from '@renderer-shared/shards'
 import { useAppCommonStore } from '@renderer-shared/shards/app-common/store'
 import type { ChampionStats, PlayerIdentity, PoolMatchPage } from '@shared/pro/champion-pool'
@@ -130,14 +159,27 @@ defineEmits<{
   'update:pageSize': [size: number]
 }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.championPool' })
+const { t: common } = useTranslation('common')
 const { t: notebookT } = useTranslation(undefined, { keyPrefix: 'pro.notebook' })
 const { t: reviewT } = useTranslation(undefined, { keyPrefix: 'pro.review' })
 const router = useRouter()
 const creating = ref<number | null>(null)
-const resources = useGameResourceProvider()
+const {
+  resources,
+  unavailable: assetsUnavailable,
+  reload: reloadAssets
+} = useNotebookResources(ref(null))
 const app = useAppCommonStore()
 const api = useInstance(ChampionPoolRenderer)
-const metricKeys = ['winRate', 'kda', 'csPerMin', 'damageShare'] as const
+const metricKeys = [
+  'winRate',
+  'kda',
+  'csPerMin',
+  'damageShare',
+  'killParticipation',
+  'visionPerMin'
+] as const
+const expanded = ref<Record<number, boolean>>({})
 const details = shallowRef<Record<number, LcuOrSgpGameDetails>>({})
 const detailsLoading = ref<Record<number, boolean>>({})
 const failedGameId = ref<number | null>(null)
@@ -147,6 +189,7 @@ watch(
   () => [props.player.serverId, props.player.puuid, props.matches],
   () => {
     generation++
+    expanded.value = {}
     details.value = {}
     detailsLoading.value = {}
     failedGameId.value = null
@@ -199,3 +242,67 @@ async function createBuild(game: LcuOrSgpGameSummary) {
   }
 }
 </script>
+
+<style scoped>
+.champion-summary {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 20px;
+  border: 1px solid var(--pool-border);
+  border-radius: 6px;
+  background: var(--pool-surface);
+}
+.champion-identity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 1;
+  min-width: 260px;
+}
+.champion-identity h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  font-weight: 650;
+}
+.identity-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.identity-tags span {
+  background: var(--la-card-muted-surface);
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.summary-metric {
+  padding-left: 18px;
+  border-left: 1px solid rgb(var(--la-card-border-rgb) / 0.13);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 65px;
+}
+.summary-metric strong {
+  font-size: 21px;
+  font-weight: 650;
+}
+.summary-metric small {
+  opacity: 0.6;
+  font-size: 11px;
+}
+</style>
+
+<style scoped>
+.detail-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.detail-toolbar > :first-child {
+  margin-right: auto;
+}
+</style>

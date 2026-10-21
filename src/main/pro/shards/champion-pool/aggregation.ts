@@ -52,7 +52,7 @@ export function aggregatePool(
     group.push(match)
     groups.set(match.championId, group)
   }
-  const champions: ChampionStats[] = Array.from(groups, ([championId, games]) => ({
+  const stats = (championId: number | null, games: PoolMatch[]): ChampionStats => ({
     championId,
     games: games.length,
     winRate: sample(
@@ -69,13 +69,31 @@ export function aggregatePool(
       (m) => (m.deaths === 0 ? 'zeroDenominator' : 'missing')
     ),
     csPerMin: sample(games, (m) => m.csPerMin),
-    damageShare: sample(games, (m) => m.damageShare)
-  }))
+    damageShare: sample(games, (m) => m.damageShare),
+    killParticipation: sample(games, (m) => m.killParticipation),
+    visionPerMin: sample(games, (m) => m.visionPerMin),
+    lastPlayed: games[0]?.startedAt ?? null,
+    position: distribution(games)[0]?.position ?? 'UNKNOWN'
+  })
+  const champions = Array.from(groups, ([id, games]) => stats(id, games))
+  const daily = new Map<number, { day: number; games: number; wins: number; decided: number }>()
+  for (const match of filtered) {
+    const date = new Date(match.startedAt)
+    date.setHours(0, 0, 0, 0)
+    const day = date.getTime()
+    const bucket = daily.get(day) ?? { day, games: 0, wins: 0, decided: 0 }
+    bucket.games++
+    bucket.wins += Number(match.outcome === 'win')
+    bucket.decided += Number(match.outcome === 'win' || match.outcome === 'loss')
+    daily.set(day, bucket)
+  }
+
   const topChampions = champions
     .toSorted((a, b) => b.games - a.games || (a.championId ?? 0) - (b.championId ?? 0))
     .slice(0, 6)
     .map(({ championId, games }) => ({ championId, games }))
-  const value = (s: ChampionStats) => (query.sort === 'games' ? s.games : s[query.sort].value)
+  const value = (s: ChampionStats) =>
+    query.sort === 'games' || query.sort === 'lastPlayed' ? s[query.sort] : s[query.sort].value
   champions.sort((a, b) => {
     const av = value(a),
       bv = value(b)
@@ -88,6 +106,10 @@ export function aggregatePool(
     )
   })
   return {
+    overview: stats(null, filtered),
+    champions,
+    positionDistribution: distribution(filtered),
+    daily: [...daily.values()].sort((a, b) => a.day - b.day),
     items: champions.slice((query.page - 1) * query.pageSize, query.page * query.pageSize),
     championIds: [...new Set(scanned.flatMap((m) => (m.championId ? [m.championId] : [])))],
     topChampions,
@@ -99,4 +121,12 @@ export function aggregatePool(
     to: filtered[0]?.startedAt ?? null,
     truncated: cachedMatches > MAX_CACHED_ANALYSIS
   }
+}
+
+function distribution(matches: PoolMatch[]) {
+  const counts = new Map<PoolMatch['position'], number>()
+  for (const match of matches) counts.set(match.position, (counts.get(match.position) ?? 0) + 1)
+  return [...counts]
+    .map(([position, games]) => ({ position, games }))
+    .sort((a, b) => b.games - a.games || a.position.localeCompare(b.position))
 }

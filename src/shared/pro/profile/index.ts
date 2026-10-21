@@ -1,3 +1,4 @@
+import type { LcuOrSgpGameSummary } from '@shared/data-adapter/wrapper'
 import type { RankedStats } from '@shared/types/league-client/ranked'
 import type { SummonerInfo } from '@shared/types/league-client/summoner'
 import { z } from 'zod'
@@ -6,6 +7,20 @@ import { type PlayerIdentity, playerSchema } from '../champion-pool'
 
 export const PROFILE_NAMESPACE = 'pro-profile-main'
 export const PROFILE_ROUTE = 'pro-profile'
+export const profileMatchesSchema = playerSchema
+  .extend({
+    championId: z.number().int().positive().nullable().default(null),
+    from: z.number().int().nonnegative().nullable().default(null),
+    to: z.number().int().nonnegative().nullable().default(null),
+    page: z.number().int().min(1).max(100_000).default(1),
+    pageSize: z.number().int().min(1).max(30).default(4)
+  })
+  .refine((query) => query.from === null || query.to === null || query.from < query.to)
+export type ProfileMatchesQuery = z.infer<typeof profileMatchesSchema>
+export interface ProfileMatches {
+  items: LcuOrSgpGameSummary[]
+  total: number
+}
 export const profileHistorySchema = playerSchema.extend({
   page: z.number().int().min(1).max(100_000).default(1)
 })

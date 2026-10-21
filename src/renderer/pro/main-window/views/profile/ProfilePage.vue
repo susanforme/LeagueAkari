@@ -17,131 +17,179 @@
     <NScrollbar class="min-h-0 flex-1">
       <div class="flex flex-col gap-4 p-6">
         <NAlert v-if="error || status?.error" type="warning">{{ t('failed') }}</NAlert>
-        <NSelect
-          v-model:value="selected"
-          :options="playerOptions"
-          :placeholder="t('selectPlayer')"
-          :aria-label="t('selectPlayer')"
-        />
-        <NCard v-if="latest" size="small">
-          <div class="mb-4 flex items-center gap-4">
+        <section class="profile-identity profile-panel">
+          <img :src="AkariLogo" class="identity-watermark" alt="" />
+          <div class="identity-avatar">
             <LcuImage
+              v-if="latest"
               :src="`/lol-game-data/assets/v1/profile-icons/${latest.summoner.profileIconId}.jpg`"
-              class="size-16 rounded"
+              class="size-16 rounded-lg"
+              :alt="displayName(latest)"
             />
-            <div class="flex flex-col gap-1">
-              <span class="text-lg font-bold">{{ displayName(latest) }}</span>
-              <span class="text-xs opacity-60"
-                >{{ latest.serverId }} ·
-                {{ t('level', { level: latest.summoner.summonerLevel }) }}</span
-              >
-              <span class="text-xs opacity-60">{{
-                t('observedAt', { time: new Date(latest.observedAt).toLocaleString() })
-              }}</span>
-            </div>
+            <img v-else :src="AkariLogo" class="size-14" alt="" />
           </div>
-          <RankedTable :ranked-stats="latest.ranked" />
-        </NCard>
-        <SessionAndPartners
+          <div class="identity-copy">
+            <span class="identity-name">{{
+              latest
+                ? displayName(latest)
+                : cachedPlayers.find((p) => key(p) === selected)?.name || t('title')
+            }}</span>
+            <span class="profile-muted"
+              >{{ selectedPlayer?.serverId
+              }}<template v-if="latest">
+                · {{ t('level', { level: latest.summoner.summonerLevel }) }}</template
+              ></span
+            >
+            <span class="profile-muted text-xs">{{
+              latest
+                ? t('observedAt', { time: new Date(latest.observedAt).toLocaleString() })
+                : t('empty')
+            }}</span>
+          </div>
+          <div class="identity-select">
+            <NSelect
+              v-model:value="selected"
+              :options="playerOptions"
+              :placeholder="t('selectPlayer')"
+              :aria-label="t('selectPlayer')"
+            />
+            <span
+              v-if="status?.current && selected === key(status.current)"
+              class="connected-status"
+              >{{ t('dashboard.connected') }}</span
+            >
+          </div>
+        </section>
+        <ProfileRanks
           v-if="selectedPlayer"
           :player="selectedPlayer"
+          :snapshot="latest"
+          :refresh-token="refreshToken"
+          :rank-label="rankLabel"
+          @history="openRankHistory"
+        />
+        <ProfilePerformance
+          v-if="selectedPlayer"
+          ref="performance"
+          :player="selectedPlayer"
+          :player-name="
+            latest
+              ? displayName(latest)
+              : cachedPlayers.find((p) => key(p) === selected)?.name || selectedPlayer.puuid
+          "
           :refresh-token="refreshToken"
         />
         <ProfileActivity
           v-if="selectedPlayer"
           :player="selectedPlayer"
           :refresh-token="refreshToken"
+          @period="filterPeriod"
         />
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <span class="font-bold">{{ t('history') }}</span>
-          <NRadioGroup v-model:value="queue" size="small">
-            <NRadioButton
-              v-for="option in queueOptions"
-              :key="option.value"
-              :value="option.value"
-              >{{ option.label }}</NRadioButton
-            >
-          </NRadioGroup>
-          <NSelect
-            :value="
-              availableSeasons.length
-                ? seasonFilter === null
-                  ? 'unknown'
-                  : seasonFilter
-                : undefined
-            "
-            :disabled="!availableSeasons.length"
-            :options="seasonOptions"
-            :aria-label="t('season')"
-            :placeholder="t('season')"
-            class="w-48!"
-            @update:value="changeSeason"
-          />
-        </div>
-        <NSpin :show="loading">
-          <RankHistoryChart
-            v-if="trend?.points.length"
-            :trend="trend"
-            :selected="selectedPoint"
-            :rank-label="rankLabel"
-            :change-label="changeLabel"
-            @select="selectPoint"
-          />
-          <NEmpty v-else-if="!loading" :description="t('noSeasonRecords')" />
-        </NSpin>
-        <div class="flex justify-end">
-          <NPagination
-            v-model:page="page"
-            :page-size="30"
-            :item-count="trend?.points.length ?? 0"
-            :disabled="loading"
-          />
-        </div>
-        <NSpin :show="loading">
-          <NTable size="small" :single-line="false">
-            <thead>
-              <tr>
-                <th>{{ t('time') }}</th>
-                <th>{{ t('season') }}</th>
-                <th>{{ t('rank') }}</th>
-                <th>LP</th>
-                <th>{{ t('change') }}</th>
-                <th>{{ t('winsLosses') }}</th>
-                <th>{{ t('reason') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="snapshot in history" :key="snapshot.id">
-                <td>
-                  <NButton
-                    text
-                    size="small"
-                    :type="selectedPoint === snapshot.id ? 'primary' : 'default'"
-                    @click="selectPoint(snapshot.id)"
-                    >{{ new Date(snapshot.observedAt).toLocaleString() }}</NButton
+        <NEmpty v-if="!selectedPlayer && !error" class="py-12" :description="t('empty')" />
+        <section v-if="selectedPlayer" ref="historySection" class="profile-panel history-panel">
+          <NCollapse v-model:expanded-names="expandedSections">
+            <NCollapseItem name="history" :title="t('history')">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <NRadioGroup v-model:value="queue" size="small">
+                  <NRadioButton
+                    v-for="option in queueOptions"
+                    :key="option.value"
+                    :value="option.value"
+                    >{{ option.label }}</NRadioButton
                   >
-                </td>
-                <td>{{ trend?.season ?? t('unknownSeason') }}</td>
-                <td>
-                  {{ rankLabel(snapshot) }}
-                  <NTag v-if="snapshot.isProvisional" size="small">{{ t('provisional') }}</NTag>
-                </td>
-                <td>{{ snapshot.leaguePoints }}</td>
-                <td>{{ changeLabel(snapshot) }}</td>
-                <td>{{ snapshot.wins }} / {{ snapshot.losses }}</td>
-                <td>{{ t(`reasons.${snapshot.reason}`) }} · LCU</td>
-              </tr>
-            </tbody>
-          </NTable>
-          <NEmpty v-if="!players.length && !loading" class="mt-5" :description="t('empty')" />
-        </NSpin>
+                </NRadioGroup>
+                <NSelect
+                  :value="
+                    availableSeasons.length
+                      ? seasonFilter === null
+                        ? 'unknown'
+                        : seasonFilter
+                      : undefined
+                  "
+                  :disabled="!availableSeasons.length"
+                  :options="seasonOptions"
+                  :aria-label="t('season')"
+                  :placeholder="t('season')"
+                  class="w-48!"
+                  @update:value="changeSeason"
+                />
+              </div>
+              <NSpin :show="loading">
+                <RankHistoryChart
+                  v-if="trend?.points.length"
+                  :trend="trend"
+                  :selected="selectedPoint"
+                  :rank-label="rankLabel"
+                  :change-label="changeLabel"
+                  @select="selectPoint"
+                />
+                <NEmpty v-else-if="!loading" :description="t('noSeasonRecords')" />
+              </NSpin>
+              <div class="flex justify-end">
+                <NPagination
+                  v-model:page="page"
+                  :page-size="30"
+                  :item-count="trend?.points.length ?? 0"
+                  :disabled="loading"
+                />
+              </div>
+              <NSpin :show="loading">
+                <div class="overflow-x-auto">
+                  <NTable size="small" :single-line="false">
+                    <thead>
+                      <tr>
+                        <th>{{ t('time') }}</th>
+                        <th>{{ t('season') }}</th>
+                        <th>{{ t('rank') }}</th>
+                        <th>LP</th>
+                        <th>{{ t('change') }}</th>
+                        <th>{{ t('winsLosses') }}</th>
+                        <th>{{ t('reason') }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="snapshot in history" :key="snapshot.id">
+                        <td>
+                          <NButton
+                            text
+                            size="small"
+                            :type="selectedPoint === snapshot.id ? 'primary' : 'default'"
+                            @click="selectPoint(snapshot.id)"
+                            >{{ new Date(snapshot.observedAt).toLocaleString() }}</NButton
+                          >
+                        </td>
+                        <td>{{ trend?.season ?? t('unknownSeason') }}</td>
+                        <td>
+                          {{ rankLabel(snapshot) }}
+                          <NTag v-if="snapshot.isProvisional" size="small">{{
+                            t('provisional')
+                          }}</NTag>
+                        </td>
+                        <td>{{ snapshot.leaguePoints }}</td>
+                        <td>{{ changeLabel(snapshot) }}</td>
+                        <td>{{ snapshot.wins }} / {{ snapshot.losses }}</td>
+                        <td>{{ t(`reasons.${snapshot.reason}`) }} · LCU</td>
+                      </tr>
+                    </tbody>
+                  </NTable>
+                </div>
+                <NEmpty v-if="!players.length && !loading" class="mt-5" :description="t('empty')" />
+              </NSpin>
+            </NCollapseItem>
+          </NCollapse>
+        </section>
+        <section v-if="selectedPlayer" class="profile-panel history-panel">
+          <SessionAndPartners :player="selectedPlayer" :refresh-token="refreshToken" />
+        </section>
       </div>
     </NScrollbar>
   </div>
 </template>
 <script setup lang="ts">
 import LcuImage from '@renderer-shared/components/LcuImage.vue'
-import RankedTable from '@renderer-shared/components/RankedTable.vue'
+import AkariLogo from '@renderer-shared/assets/logo/logo.svg'
+import ProfileRanks from './ProfileRanks.vue'
+import ProfilePerformance from './ProfilePerformance.vue'
 import { useInstance } from '@renderer-shared/shards'
 import {
   rankedQueues,
@@ -155,7 +203,8 @@ import { useTranslation } from 'i18next-vue'
 import {
   NAlert,
   NButton,
-  NCard,
+  NCollapse,
+  NCollapseItem,
   NEmpty,
   NIcon,
   NPagination,
@@ -167,7 +216,7 @@ import {
   NTable,
   NTag
 } from 'naive-ui'
-import { computed, onActivated, onDeactivated, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onActivated, onDeactivated, ref, shallowRef, watch } from 'vue'
 import { ProfileRenderer } from '../../../shared/shards/profile'
 import { ChampionPoolRenderer } from '../../../shared/shards/champion-pool'
 import type { PoolPlayer } from '@shared/pro/champion-pool'
@@ -194,6 +243,18 @@ const seasonFilter = ref<number | null | undefined>(undefined)
 const availableSeasons = ref<(number | null)[]>([])
 const selectedPoint = ref<string | null>(null)
 const refreshToken = ref(0)
+const performance = ref<InstanceType<typeof ProfilePerformance>>()
+const historySection = ref<HTMLElement>()
+const expandedSections = ref<string[]>([])
+async function openRankHistory(value: (typeof rankedQueues)[number]) {
+  queue.value = value
+  expandedSections.value = ['history']
+  await nextTick()
+  historySection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+function filterPeriod(from: number, to: number) {
+  performance.value?.filterPeriod(from, to)
+}
 const history = computed(() =>
   [...(trend.value?.points ?? [])].reverse().slice((page.value - 1) * 30, page.value * 30)
 )
@@ -337,6 +398,7 @@ async function reload(force = false) {
             : cached[0]
               ? key(cached[0])
               : null
+    if (changed) refreshToken.value++
     if (force || changed || !trend.value) await loadHistory()
   } catch {
     if (current === reloadGeneration) error.value = true
@@ -393,3 +455,103 @@ useWorkspaceState(
   })
 )
 </script>
+
+<style scoped>
+.profile-page {
+  color: var(--la-color-text-primary);
+  --profile-muted: color-mix(in srgb, var(--la-color-text-primary) 58%, transparent);
+  --profile-border: rgb(var(--la-card-border-rgb) / 0.09);
+  --profile-win: #16875c;
+  --profile-loss: #d04455;
+  container-type: inline-size;
+}
+[data-theme='dark'] .profile-page {
+  --profile-win: #39cc96;
+  --profile-loss: #ef7180;
+}
+.profile-page :deep(.profile-panel) {
+  min-width: 0;
+  border: 1px solid var(--profile-border);
+  border-radius: 10px;
+  background: var(--la-card-surface-90);
+  overflow: hidden;
+}
+.profile-page :deep(.profile-muted) {
+  color: var(--profile-muted);
+}
+.profile-page :deep(.profile-section-title) {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+.profile-identity {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 16px 22px;
+  min-height: 78px;
+}
+.identity-watermark {
+  position: absolute;
+  height: 210px;
+  width: 210px;
+  right: 29%;
+  top: -48px;
+  opacity: 0.045;
+  pointer-events: none;
+}
+.identity-avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border: 1px solid var(--profile-border);
+  border-radius: 10px;
+  background: var(--la-card-muted-surface);
+  overflow: hidden;
+}
+.identity-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 5px;
+}
+.identity-name {
+  font-size: 23px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+.identity-select {
+  width: 310px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.connected-status {
+  color: var(--profile-win);
+  text-align: right;
+  font-size: 12px;
+}
+.history-panel {
+  padding: 18px 20px;
+  scroll-margin: 16px;
+}
+@container (max-width: 760px) {
+  .profile-identity {
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 18px;
+  }
+  .identity-select {
+    width: 100%;
+  }
+  .identity-name {
+    font-size: 20px;
+  }
+}
+</style>

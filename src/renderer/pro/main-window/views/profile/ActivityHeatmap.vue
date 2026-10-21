@@ -28,7 +28,7 @@
                 }"
                 :aria-label="description(day)"
                 :aria-pressed="selected.date === day.date"
-                @click="selectedDate = day.date"
+                @click="selectDay(day.date)"
                 @focus="selectedDate = day.date"
               />
             </template>
@@ -49,26 +49,6 @@
           <span>{{ t('more') }}</span>
         </div>
       </div>
-      <div class="min-w-48 flex-1" aria-live="polite">
-        <div class="mb-3 font-medium">{{ formatDate(selected.date) }}</div>
-        <div class="mb-2 text-2xl font-bold">{{ t('dailyGames', { count: selected.games }) }}</div>
-        <div v-if="selected.games" class="flex flex-wrap gap-3 text-sm opacity-80">
-          <span>{{ t('results', { wins: selected.wins, losses: selected.losses }) }}</span>
-          <span>{{
-            t('minutes', {
-              value: selected.durationSamples ? Math.round(selected.durationSeconds / 60) : '—'
-            })
-          }}</span>
-          <span v-if="selected.games !== selected.wins + selected.losses">{{
-            t('unknownResults', { count: selected.games - selected.wins - selected.losses })
-          }}</span>
-          <span v-if="selected.durationSamples !== selected.games">{{
-            t('durationSamples', { count: selected.durationSamples })
-          }}</span>
-        </div>
-        <div v-else class="text-sm opacity-60">{{ t('noDailyRecords') }}</div>
-        <div class="mt-3 text-xs opacity-60">{{ t('heatmapHelp') }}</div>
-      </div>
     </div>
   </div>
 </template>
@@ -79,11 +59,16 @@ import { useTranslation } from 'i18next-vue'
 import { NButton, NTooltip, useThemeVars } from 'naive-ui'
 import { computed, ref } from 'vue'
 
+const emit = defineEmits<{ select: [date: number] }>()
 const props = defineProps<{ days: ProfileActivity['days'] }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.profile.activity' })
 const theme = useThemeVars()
 const resources = useGameResourceProvider()
 const selectedDate = ref<number | null>(null)
+function selectDay(date: number) {
+  selectedDate.value = date
+  emit('select', date)
+}
 const selected = computed(
   () => props.days.find((day) => day.date === selectedDate.value) ?? props.days.at(-1)!
 )
@@ -116,19 +101,19 @@ function description(day: ProfileActivity['days'][number]) {
 <style scoped>
 .calendar {
   display: grid;
-  grid-template-columns: auto repeat(6, 28px);
-  grid-template-rows: repeat(7, 28px);
-  gap: 5px;
+  grid-template-columns: auto repeat(6, 15px);
+  grid-template-rows: repeat(7, 15px);
+  gap: 4px;
 }
 .weekday {
   align-self: center;
   padding-right: 8px;
-  font-size: 12px;
+  font-size: 10px;
   opacity: 0.6;
 }
 .day-cell {
-  width: 28px;
-  height: 28px;
+  width: 15px;
+  height: 15px;
   padding: 0;
   border-radius: 4px;
 }

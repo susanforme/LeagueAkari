@@ -1,5 +1,29 @@
 pro:
   championPool:
+    overview: 'Overview'
+    trends: 'Trends'
+    championsPlayed: 'Champions played'
+    selectedFilters: 'Selected filters'
+    mostPlayed: 'Most played'
+    sampleScope: '{{count}} matches in scope'
+    positionDistribution: 'Position distribution'
+    winRateVsGames: 'Win rate vs games'
+    performanceRadar: 'Performance radar'
+    radarScope: 'Personal match averages · View scales'
+    radarScale: 'Axis limits: KDA 6, CS/min 10, damage share 50%, vision/min 2, kill participation 100%. Not a rank rating. No polygon is drawn when a metric is missing.'
+    dailyPerformance: 'Daily performance'
+    selectDay: 'Select a day to filter · Green shows wins'
+    killParticipation: 'Kill participation'
+    visionPerMin: 'Vision/min'
+    lastPlayed: 'Last played'
+    timelineCoverage: '{{count}} matches need 10-minute matchup data'
+    fillTimelines: 'Fill timelines (up to 20)'
+    timelineProgress: 'Processed {{count}} / {{total}} matches'
+    stop: 'Stop fetching'
+    minute: 'min'
+    championDamage: 'Champion damage'
+    expandMatch: 'Expand match details'
+    collapseMatch: 'Collapse match details'
     title: Champion pool
     player: Player
     selectPlayer: Select a player
@@ -278,6 +302,39 @@ pro:
       ITEM_SOLD: Sold item
       ITEM_UNDO: Undid item action
   profile:
+    dashboard:
+      showLess: Show less
+      connected: Connected account
+      wins: Wins
+      losses: Losses
+      recentCaptures: LP trend · Last 20 captures
+      viewHistory: View history
+      previousRank: Previous season
+      peakRank: Season peak
+      recentMatches: Recent matches
+      champions: Champions played
+      last30Days: Last 30 days
+      viewAll: View all
+      viewMatches: View matches
+      matches: Match history
+      noMatches: No synced matches for these filters
+      sync: Sync matches
+      loadFailed: Could not load data. Please retry.
+      result: Result
+      champion: Champion
+      gold: Gold
+      queue: Queue
+      review: Match review
+      reviewMatch: 'Review match {{id}}'
+      unknownChampion: Unknown champion
+      noBaseline: No comparison
+      dailyWinRate: Daily win rate
+      results:
+        win: Victory
+        loss: Defeat
+        remake: Remake
+        abort: Aborted
+        unknown: Unknown
     activity:
       heatmap: Game calendar · Last 30 days
       heatmapHelp: Darker cells mean more games. Hover or select a date for details.
@@ -301,7 +358,7 @@ pro:
       period: Period
       recentWeek: Last 7 days
       previousWeek: Previous 7 days
-      change: Change vs. previous 7 days
+      change: Last 7 days vs previous week
       results: '{{wins}} W / {{losses}} L'
       unknownResults_one: '{{count}} unknown result'
       unknownResults_other: '{{count}} unknown results'
