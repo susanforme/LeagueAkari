@@ -1,5 +1,6 @@
 <template>
   <div class="flex flex-col gap-3">
+    <LoadoutCapture :content="content" />
     <div class="flex flex-wrap items-center gap-2">
       <span class="font-medium">{{ t('runes') }}</span>
       <NButton size="small" :loading="capturing" :disabled="!league.isConnected" @click="capture">{{
@@ -55,6 +56,7 @@ import RuneV2Edit from '@main-window/views/automation/components/auto-champ-conf
 import type { NotebookContent, NotebookCatalog } from '@shared/pro/notebook'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
 import EntitySelect from './EntitySelect.vue'
+import LoadoutCapture from './LoadoutCapture.vue'
 import LoadoutSummary from './LoadoutSummary.vue'
 const props = defineProps<{ content: NotebookContent; catalog: NotebookCatalog }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.loadout' })

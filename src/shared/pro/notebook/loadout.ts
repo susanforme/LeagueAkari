@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import type { ChampSelectSession } from '../../types/league-client/champ-select'
 import type { Style } from '../../types/league-client/game-data'
+import type { NotebookContent } from './index'
 
 const id = z.number().int().positive()
 export const runesSchema = z
@@ -18,12 +19,20 @@ export type NotebookRunes = z.infer<typeof runesSchema>
 export type NotebookSpells = z.infer<typeof spellsSchema>
 export type LoadoutPart = 'runes' | 'spells' | 'items'
 export type LoadoutPartState =
-  'skipped' | 'pending' | 'matched' | 'mismatch' | 'failed' | 'conflict' | 'noSpace' | 'invalid'
+  | 'skipped'
+  | 'pending'
+  | 'matched'
+  | 'mismatch'
+  | 'failed'
+  | 'conflict'
+  | 'noEditablePage'
+  | 'invalid'
 export interface LoadoutContext {
   key: string
   championId: number
   mapId: number
   position: string
+  gameMode: string
 }
 export interface LoadoutStatus {
   context: LoadoutContext | null
@@ -32,12 +41,16 @@ export interface LoadoutStatus {
   busy: boolean
   parts: Record<LoadoutPart, LoadoutPartState>
   issue: 'position' | 'changed' | null
+  details: LoadoutDetails
+  flash: 'matched' | 'mismatch' | 'failed' | null
+  flashSlot: LoadoutPreferences['flashSlot']
 }
 export const loadoutApplySchema = z.object({
   entryId: z.string().uuid(),
   expectedRevision: z.number().int().positive(),
   contextKey: z.string().min(1).max(2000),
-  mode: z.enum(['apply', 'new', 'overwrite']).default('apply')
+  mode: z.enum(['apply', 'new', 'overwrite']).default('apply'),
+  retry: z.boolean().optional()
 })
 export type LoadoutApply = z.infer<typeof loadoutApplySchema>
 
@@ -81,4 +94,28 @@ export function sameRunes(a: NotebookRunes, b: NotebookRunes) {
     a.subStyleId === b.subStyleId &&
     JSON.stringify(ordered(a.selectedPerkIds)) === JSON.stringify(ordered(b.selectedPerkIds))
   )
+}
+
+export const loadoutPreferencesSchema = z.object({
+  flashSlot: z.enum(['none', 'D', 'F']).default('none'),
+  forceFlash: z.boolean().default(false)
+})
+export type LoadoutPreferences = z.infer<typeof loadoutPreferencesSchema>
+export interface LoadoutDetails {
+  runes?: { current: NotebookRunes | null; expected: NotebookRunes }
+  spells?: { current: NotebookSpells; expected: NotebookSpells }
+  items?: string[]
+}
+export interface CapturedLoadout {
+  context: LoadoutContext
+  runes: NotebookRunes | null
+  spells: NotebookSpells | null
+  itemSets: { uid: string; title: string; groups: NotebookContent['groups'] }[]
+}
+export function arrangeFlash(
+  spells: NotebookSpells,
+  slot: LoadoutPreferences['flashSlot']
+): NotebookSpells {
+  const swapped = (slot === 'D' && spells.spell2Id === 4) || (slot === 'F' && spells.spell1Id === 4)
+  return swapped ? { spell1Id: spells.spell2Id, spell2Id: spells.spell1Id } : { ...spells }
 }

@@ -2,6 +2,7 @@
   <NScrollbar class="h-full">
     <div class="flex flex-col gap-4">
       <ExperienceSettings />
+      <LoadoutSettings />
       <SettingsSection :title="t('notebookData')">
         <SettingsRow :label="t('exportScope')" :label-width="180">
           <NSelect
@@ -55,6 +56,7 @@ import { NotebookRenderer } from '../../shared/shards/notebook'
 import { useChampionPoolResources } from '../views/champion-pool/useChampionPoolResources'
 import NotebookTransfer from './NotebookTransfer.vue'
 import DataPanel from './DataPanel.vue'
+import LoadoutSettings from './LoadoutSettings.vue'
 import ExperienceSettings from './ExperienceSettings.vue'
 const api = useInstance(NotebookRenderer),
   { resources } = useChampionPoolResources(),

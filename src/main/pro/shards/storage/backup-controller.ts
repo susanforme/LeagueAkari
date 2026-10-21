@@ -23,7 +23,8 @@ const tables = [
   'ExperiencePreferences',
   'ExperienceWorkspaces',
   'ExperienceScenes',
-  'ExperiencePlans'
+  'ExperiencePlans',
+  'NotebookLoadoutState'
 ] as const
 export class BackupController {
   private _prepared: { token: string; path: string } | null = null
@@ -72,7 +73,9 @@ export class BackupController {
             ? tables.slice(0, 13)
             : version === 6
               ? tables.slice(0, 16)
-              : tables
+              : version === 7
+                ? tables.slice(0, 17)
+                : tables
       if (schema.filter((r: { type: string }) => r.type === 'table').length !== expected.length)
         throw new Error('Invalid backup schema')
       // Compare columns against our schema before executing migrations or reading any business data.
@@ -229,6 +232,9 @@ export class BackupController {
         }
         // Credentials are never backed up; automatic client writes require a fresh opt-in after restore.
         await manager.query('UPDATE BuildSyncRules SET enabled=0')
+        await manager.query(
+          "UPDATE NotebookLoadoutState SET payload=json_set(payload, '$.forceFlash', json('false')) WHERE key='preferences' AND json_valid(payload)"
+        )
         await manager.query('DELETE FROM BuildApplications')
       })
     } finally {

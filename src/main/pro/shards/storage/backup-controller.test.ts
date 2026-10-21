@@ -33,14 +33,25 @@ describe.runIf(!!process.versions.electron)('pro backups', () => {
   })
   it('previews and stages without changing data, then atomically restores with a recovery copy', async () => {
     await database.query("INSERT INTO PoolPlayers VALUES ('EUW1','player','Before',1)")
+    await database.query("INSERT INTO NotebookLoadoutState VALUES ('preferences', ?)", [
+      JSON.stringify({ flashSlot: 'D', forceFlash: true })
+    ])
     await backups.exportFile()
     await database.query("UPDATE PoolPlayers SET name='After'")
+    await database.query('DELETE FROM NotebookLoadoutState')
     const preview = await backups.prepareFile()
-    expect(preview).toMatchObject({ version: 7, entries: 0, matches: 0 })
+    expect(preview).toMatchObject({ version: 8, entries: 0, matches: 0 })
     await backups.stage(preview!.token)
     expect((await database.query('SELECT name FROM PoolPlayers'))[0].name).toBe('After')
     await backups.applyPending()
     expect((await database.query('SELECT name FROM PoolPlayers'))[0].name).toBe('Before')
+    expect(
+      JSON.parse(
+        (
+          await database.query("SELECT payload FROM NotebookLoadoutState WHERE key='preferences'")
+        )[0].payload
+      )
+    ).toEqual({ flashSlot: 'D', forceFlash: false })
     const saved = await readdir(join(directory, 'pro-backups'))
     expect(saved).toHaveLength(1)
     const recovery = new DataSource({
@@ -84,6 +95,7 @@ describe.runIf(!!process.versions.electron)('pro backups', () => {
     const legacy = new DataSource({ type: 'better-sqlite3', database: legacyPath })
     await legacy.initialize()
     await legacy.query('DROP TABLE ExperiencePlans')
+    await legacy.query('DROP TABLE NotebookLoadoutState')
     await legacy.query('PRAGMA user_version=6')
     await legacy.destroy()
     dialogs.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [legacyPath] })
@@ -92,7 +104,7 @@ describe.runIf(!!process.versions.electron)('pro backups', () => {
     await backups.stage(old!.token)
     await backups.applyPending()
     expect(await database.query('SELECT * FROM ExperiencePlans')).toEqual([])
-    expect((await database.query('PRAGMA user_version'))[0].user_version).toBe(7)
+    expect((await database.query('PRAGMA user_version'))[0].user_version).toBe(8)
   })
   it('rejects corrupt, newer, and foreign schemas without replacing current data', async () => {
     await writeFile(path, 'broken')
@@ -111,6 +123,6 @@ describe.runIf(!!process.versions.electron)('pro backups', () => {
     )
     await foreign.destroy()
     await expect(backups.prepareFile()).rejects.toThrow('schema')
-    expect((await database.query('PRAGMA user_version'))[0].user_version).toBe(7)
+    expect((await database.query('PRAGMA user_version'))[0].user_version).toBe(8)
   })
 })

@@ -10,10 +10,18 @@
         :aria-label="t('choose')"
       />
       <NPagination v-if="total > 30" v-model:page="page" :item-count="total" :page-size="30" />
-      <LoadoutSummary v-if="selected" :content="selected.content" />
+      <LoadoutSummary
+        v-if="selected"
+        :content="{
+          ...selected.content,
+          spells: selected.content.spells
+            ? arrangeFlash(selected.content.spells, status?.flashSlot ?? 'none')
+            : null
+        }"
+      />
       <span v-if="!loading && !entries.length" class="text-xs opacity-60">{{ t('empty') }}</span>
     </template>
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap items-center gap-2">
       <NButton
         type="primary"
         size="small"
@@ -23,11 +31,18 @@
         >{{ t('apply') }}</NButton
       >
       <NButton v-if="!entry" size="small" @click="openHandbook">{{ t('handbook') }}</NButton>
-      <NButton size="small" :disabled="applying" @click="reload">{{ t('retry') }}</NButton>
+      <NButton
+        v-if="!entry || status?.context || failed"
+        size="small"
+        quaternary
+        :disabled="applying"
+        @click="reload"
+        >{{ t('retry') }}</NButton
+      >
+      <span v-if="entry && !status?.context" class="text-xs opacity-60">{{
+        t('selectionOnly')
+      }}</span>
     </div>
-    <span v-if="entry && !status?.context" class="text-xs opacity-60">{{
-      t('selectionOnly')
-    }}</span>
     <template v-if="status && status.entryId && status.entryId === selected?.id">
       <div class="flex flex-wrap gap-2" aria-live="polite">
         <NTag
@@ -44,8 +59,19 @@
           >{{ t(part) }} · {{ t(`states.${status.parts[part]}`) }}</NTag
         >
       </div>
+      <LoadoutDifferences :details="status.details" />
+      <NButton
+        v-if="canRetry"
+        size="small"
+        :loading="applying"
+        :disabled="!canApply || status.busy || !!status.issue"
+        @click="retryFailed"
+        >{{ t('retryFailed') }}</NButton
+      >
       <NAlert v-if="status.issue" type="warning">{{ t(status.issue) }}</NAlert>
-      <span v-if="status.parts.runes === 'noSpace'" class="text-xs">{{ t('noSpaceHelp') }}</span>
+      <span v-if="status.parts.runes === 'noEditablePage'" class="text-xs">{{
+        t('noEditablePageHelp')
+      }}</span>
       <div v-if="status.parts.items === 'conflict'" class="flex gap-2">
         <NButton size="tiny" :disabled="applying || !canApply" @click="apply('new')">{{
           workshopT('createCopy')
@@ -55,6 +81,9 @@
         }}</NButton>
       </div>
     </template>
+    <NAlert v-if="status?.flash === 'mismatch' || status?.flash === 'failed'" type="warning">{{
+      t(status.flash === 'failed' ? 'flashFailed' : 'flashMismatch')
+    }}</NAlert>
     <NAlert v-if="failed" type="error"
       >{{ t('failed') }} <NButton text @click="refresh">{{ t('retry') }}</NButton></NAlert
     >
@@ -69,11 +98,13 @@ import { useInstance } from '@renderer-shared/shards'
 import { useLeagueClientStore } from '@renderer-shared/shards/league-client/store'
 import { NOTEBOOK_ROUTE, listSchema, type NotebookEntry } from '@shared/pro/notebook'
 import {
+  arrangeFlash,
   selectedLoadoutChampion,
   type LoadoutApply,
   type LoadoutStatus
 } from '@shared/pro/notebook/loadout'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
+import LoadoutDifferences from './LoadoutDifferences.vue'
 import LoadoutSummary from './LoadoutSummary.vue'
 const props = defineProps<{ entry?: NotebookEntry }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.loadout' })
@@ -105,6 +136,10 @@ const canApply = computed(() => {
     !!(content.runes || content.spells || content.groups.some((g) => g.items.length))
   )
 })
+const canRetry = computed(
+  () =>
+    !!status.value && parts.some((p) => !['matched', 'skipped'].includes(status.value!.parts[p]))
+)
 let timer: ReturnType<typeof setTimeout> | undefined,
   generation = 0,
   disposed = false,
@@ -141,12 +176,17 @@ async function refresh() {
         })
       )
       if (disposed || current !== generation) return
-      entries.value = result.items
+      const preferred = page.value === 1 ? await api.preferredLoadout(key) : null
+      if (disposed || current !== generation) return
+      entries.value =
+        preferred && !result.items.some((e) => e.id === preferred.id)
+          ? [preferred, ...result.items]
+          : result.items
       total.value = result.total
       loadedKey = `${key}:${page.value}`
-      selectedId.value = result.items.some((e) => e.id === next.entryId)
+      selectedId.value = entries.value.some((e) => e.id === next.entryId)
         ? next.entryId
-        : (result.items[0]?.id ?? null)
+        : (preferred?.id ?? result.items[0]?.id ?? null)
     }
     failed.value = false
   } catch {
@@ -162,7 +202,13 @@ function application(mode: LoadoutApply['mode']): LoadoutApply | null {
   const entry = selected.value,
     context = status.value?.context
   return entry && context
-    ? { entryId: entry.id, expectedRevision: entry.revision, contextKey: context.key, mode }
+    ? {
+        entryId: entry.id,
+        expectedRevision: entry.revision,
+        contextKey: context.key,
+        mode,
+        retry: mode !== 'apply' && status.value?.entryId === entry.id && !status.value.issue
+      }
     : null
 }
 async function apply(mode: LoadoutApply['mode'], request = application(mode)) {
@@ -180,6 +226,10 @@ async function apply(mode: LoadoutApply['mode'], request = application(mode)) {
   } finally {
     applying.value = false
   }
+}
+function retryFailed() {
+  const request = application('apply')
+  if (request) void apply('apply', { ...request, retry: true })
 }
 function reload() {
   loadedKey = ''
@@ -215,7 +265,8 @@ watch(
       league.champSelect.session?.id,
       league.champSelect.session?.gameId,
       selectedLoadoutChampion(league.champSelect.session),
-      league.gameflow.session?.map.id
+      league.gameflow.session?.map.id,
+      league.gameflow.session?.map.gameMode
     ]),
   () => {
     status.value = null

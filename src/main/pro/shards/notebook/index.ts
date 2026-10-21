@@ -9,6 +9,7 @@ import { ProStorageMain } from '../storage'
 import { BuildSyncController } from './build-sync-controller'
 import { registerNotebookHandlers } from './ipc-handlers'
 import { LoadoutController } from './loadout-controller'
+import { LoadoutPreferencesController } from './loadout-preferences-controller'
 import { NotebookController } from './notebook-controller'
 import { NotebookResourceLoader } from './resource-loader'
 
@@ -18,6 +19,7 @@ export class NotebookMain implements IAkariShardInitDispose {
   private readonly _controller: NotebookController
   private readonly _resources: NotebookResourceLoader
   private readonly _builds: BuildSyncController
+  private readonly _loadoutPreferences: LoadoutPreferencesController
   private readonly _loadouts: LoadoutController
   constructor(
     private readonly storage: ProStorageMain,
@@ -36,8 +38,14 @@ export class NotebookMain implements IAkariShardInitDispose {
       sgp,
       (error) => logger.warn('Build synchronization failed', error)
     )
-    this._loadouts = new LoadoutController(this._controller, this._builds, league, sgp, (error) =>
-      logger.warn('Notebook loadout failed', error)
+    this._loadoutPreferences = new LoadoutPreferencesController(() => storage.dataSource)
+    this._loadouts = new LoadoutController(
+      this._controller,
+      this._builds,
+      league,
+      sgp,
+      (error) => logger.warn('Notebook loadout failed', error),
+      this._loadoutPreferences
     )
   }
   async onInit() {
@@ -49,12 +57,14 @@ export class NotebookMain implements IAkariShardInitDispose {
       this._loadouts
     )
     if (this.storage.status === 'ready') {
+      await this._loadoutPreferences.load()
       this._builds.start()
       this._loadouts.start()
     }
   }
   async onDispose() {
     await this._loadouts.dispose()
+    await this._loadoutPreferences.dispose()
     await this._builds.dispose()
     await this._resources.dispose()
     await this._controller.dispose()

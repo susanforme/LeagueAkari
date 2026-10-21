@@ -43,6 +43,15 @@ export class ResourceLoader {
       [locale]
     )
     const previous = cached ? resourceCatalogSchema.parse(JSON.parse(cached.catalog)) : null
+    if (previous) {
+      // Older caches include Jade variants (60xxx), which are not the current LoL roster.
+      for (const id of Object.keys(previous.champions)) {
+        if (Number(id) <= 0 || (Number(id) >= 60000 && Number(id) < 70000)) {
+          delete previous.champions[id]
+          if (previous.championSearch) delete previous.championSearch[id]
+        }
+      }
+    }
     if (previous?.championSearch && Date.now() - cached.updatedAt < 86_400_000) return previous
     try {
       const language = locale === 'zh-CN' ? 'zh_cn' : 'default'
@@ -53,10 +62,11 @@ export class ResourceLoader {
         if (!response.ok) throw new Error(`Resource catalog HTTP ${response.status}`)
         return rowsSchema.parse(await response.json())
       }
-      const [champions, queues] = await Promise.all([
+      const [championRows, queues] = await Promise.all([
         load('champion-summary.json'),
         load('queues.json')
       ])
+      const champions = championRows.filter((row) => row.id > 0 && !row.alias?.startsWith('Jade_'))
       const catalog: ResourceCatalog = {
         champions: Object.fromEntries(champions.map((row) => [row.id, row.name])),
         championSearch: Object.fromEntries(

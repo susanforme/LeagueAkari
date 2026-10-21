@@ -28,7 +28,11 @@ describe.runIf(!!process.versions.electron)('champion catalog cache', () => {
       json: async () =>
         url.endsWith('queues.json')
           ? [{ id: 420, name: '单排' }]
-          : [{ id: 103, name: '九尾妖狐', description: '阿狸', alias: 'Ahri' }]
+          : [
+              { id: -1, name: 'None', alias: 'None' },
+              { id: 103, name: '九尾妖狐', description: '阿狸', alias: 'Ahri' },
+              { id: 60103, name: '九尾妖狐', description: '阿狸', alias: 'Jade_Ahri' }
+            ]
     }))
     const [first, second] = await Promise.all([loader.get('zh-CN'), loader.get('zh-CN')])
     expect(first).toEqual({
@@ -67,4 +71,30 @@ describe.runIf(!!process.versions.electron)('champion catalog cache', () => {
     await expect(loader.get('en')).rejects.toThrow()
     expect(await database.query('SELECT * FROM PoolResources')).toEqual([])
   })
+
+  it.each([Date.now(), 0])(
+    'filters legacy variants from cached catalogs at %s, including offline',
+    async (updatedAt) => {
+      await database.query('INSERT INTO PoolResources VALUES (?, ?, ?)', [
+        'en',
+        JSON.stringify({
+          champions: { '-1': 'None', 103: 'Ahri', 60103: 'Ahri', 266: 'Aatrox', 60266: 'Aatrox' },
+          championSearch: {
+            103: 'Ahri',
+            60103: 'Ahri Jade_Ahri',
+            266: 'Aatrox',
+            60266: 'Aatrox Jade_Aatrox'
+          },
+          queues: { 420: 'Ranked Solo' }
+        }),
+        updatedAt
+      ])
+      fetchMock.mockRejectedValue(new Error('offline'))
+      expect(await loader.get('en')).toEqual({
+        champions: { 103: 'Ahri', 266: 'Aatrox' },
+        championSearch: { 103: 'Ahri', 266: 'Aatrox' },
+        queues: { 420: 'Ranked Solo' }
+      })
+    }
+  )
 })

@@ -7,8 +7,9 @@ import { initializeReviewsAndProfiles } from './upgrades/version-4'
 import { initializePracticeAndTraining } from './upgrades/version-5'
 import { initializeExperience } from './upgrades/version-6'
 import { initializePlayPlans } from './upgrades/version-7'
+import { initializeLoadoutState } from './upgrades/version-8'
 
-export const PRO_DATABASE_VERSION = 7
+export const PRO_DATABASE_VERSION = 8
 
 export class NewerDatabaseVersionError extends Error {}
 
@@ -27,6 +28,7 @@ export async function initializeProDatabase(dataSource: DataSource) {
       if (version < 5) await initializePracticeAndTraining(manager)
       if (version < 6) await initializeExperience(manager)
       if (version < 7) await initializePlayPlans(manager)
+      if (version < 8) await initializeLoadoutState(manager)
       await manager.query(`PRAGMA user_version = ${PRO_DATABASE_VERSION}`)
     })
   }

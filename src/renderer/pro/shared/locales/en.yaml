@@ -449,8 +449,8 @@ pro:
     reviewed: 'Reviewed {{patch}}'
     addPractice: 'Add to practice'
     exportBuild: 'Export item set'
-    applyBuild: 'Apply to client'
-    autoBuild: 'Sync when selecting this champion'
+    applyBuild: 'Sync item set'
+    autoBuild: 'Auto-sync item set'
     createCopy: 'Create copy'
     overwrite: 'Overwrite this set'
     overwriteQuestion: 'This item set was changed in the client. Overwrite it? Other sets are preserved.'
@@ -748,7 +748,7 @@ pro:
     position: Your role changed. Choose a matching playstyle.
     changed: This notebook build was edited or deleted. Select and apply it again.
     warning: 'Check the loadout for “{{title}}”'
-    noSpaceHelp: Your rune pages are full. Free a rune page and retry.
+    noEditablePageHelp: No editable rune page is available. Prepare an editable page in the client.
     states:
       skipped: Not configured
       pending: Awaiting confirmation
@@ -756,5 +756,37 @@ pro:
       mismatch: Does not match
       failed: Cannot verify; retry
       conflict: Item set changed in client
-      noSpace: Rune pages full
+      noEditablePage: No editable rune page
       invalid: Unsupported by current client
+    settings: 'Loadout preferences'
+    flashSlot: 'Flash slot'
+    forceFlash: 'Enforce Flash slot during champion select'
+    forceFlashHelp: 'Only swaps D/F when Flash is equipped; preserves the other spell. When disabled, only warns. Applying a loadout still uses your preferred slot.'
+    settingsFailed: 'Could not read or save preferences. Please retry.'
+    flashMismatch: 'Flash is in a different slot than your preference.'
+    flashFailed: 'Could not confirm the Flash slot. Reload to check.'
+    retryFailed: 'Retry unsuccessful parts'
+    difference: '{{field}}: current {{current}} → planned {{expected}}'
+    noCurrentRunes: 'There is no complete current rune page to compare.'
+    primaryStyleId: 'Primary style'
+    subStyleId: 'Secondary style'
+    keystone: 'Keystone'
+    runeSlot: 'Rune slot {{index}}'
+    spellsReversed: 'D/F spells are reversed compared with the loadout.'
+    captureLoadout: 'Read current loadout'
+    capturePreview: 'Preview client loadout'
+    captureLoadoutFailed: 'Could not read the loadout. Select this champion during champion select and retry.'
+    captureNoRunes: 'Current runes are unavailable; draft runes will be kept.'
+    captureNoSpells: 'Current spells are unavailable; draft spells will be kept.'
+    captureItems: 'Choose an item set (leave empty to keep draft)'
+    captureAccept: 'Use in draft'
+    flashSlots:
+      none: Leave unchanged
+      D: Flash on D
+      F: Flash on F
+    itemDifferences:
+      missing: The item set is missing in the client.
+      title: The item set title differs.
+      associatedChampions: The item set champions differ.
+      associatedMaps: The item set maps differ.
+      blocks: Item groups, order, items or quantities differ.

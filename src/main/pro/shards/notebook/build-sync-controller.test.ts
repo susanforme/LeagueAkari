@@ -137,4 +137,22 @@ describe.runIf(!!process.versions.electron)('client item-set synchronization', (
     expect(await builds.apply(request())).toEqual({ state: 'applied' })
     expect(put).toHaveBeenCalledTimes(1)
   })
+  it('captures compatible item sets without writing and identifies the changed field', async () => {
+    league.data.gameflow.phase = 'ChampSelect'
+    const current = clientItemSet(entry, 'current')
+    collection.itemSets = [
+      current,
+      { ...current, uid: 'other', associatedChampions: [64] },
+      { uid: 'invalid', blocks: [] }
+    ]
+    expect(await builds.capture(() => {})).toEqual([
+      { uid: 'current', title: entry.content.title, groups: entry.content.groups }
+    ])
+    expect(put).not.toHaveBeenCalled()
+    collection.itemSets = []
+    await builds.apply(request())
+    collection.itemSets[0].title = 'Renamed'
+    expect(await builds.differences(entry, () => {})).toEqual(['title'])
+    expect(await builds.check(entry, () => {})).toBe(false)
+  })
 })

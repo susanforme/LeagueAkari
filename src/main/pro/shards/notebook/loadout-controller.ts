@@ -2,19 +2,23 @@ import type { LeagueClientMain } from '@main/shards/league-client'
 import type { SgpMain } from '@main/shards/sgp'
 import type { NotebookEntry } from '@shared/pro/notebook'
 import {
+  type CapturedLoadout,
   type LoadoutApply,
   type LoadoutContext,
   type LoadoutPart,
+  type LoadoutPreferences,
   type LoadoutStatus,
-  type NotebookRunes,
+  arrangeFlash,
   runesSchema,
   sameRunes,
   selectedLoadoutChampion,
+  spellsSchema,
   validRunes
 } from '@shared/pro/notebook/loadout'
 import { type IReactionDisposer, reaction } from 'mobx'
 
 import type { BuildSyncController } from './build-sync-controller'
+import type { LoadoutPreferencesController } from './loadout-preferences-controller'
 import type { NotebookController } from './notebook-controller'
 
 export class LoadoutController {
@@ -29,15 +33,16 @@ export class LoadoutController {
   private _parts: LoadoutStatus['parts'] = { runes: 'skipped', spells: 'skipped', items: 'skipped' }
   private _issue: LoadoutStatus['issue'] = null
   private _applying = false
-  // Ownership is limited to pages created in this connection; never replace a user's rune page.
-  private _runePage: { account: string; id: number; runes: NotebookRunes } | null = null
+  private _details: LoadoutStatus['details'] = {}
+  private _flash: LoadoutStatus['flash'] = null
 
   constructor(
     private readonly _notebooks: NotebookController,
     private readonly _builds: BuildSyncController,
     private readonly _league: LeagueClientMain,
     private readonly _sgp: SgpMain,
-    private readonly _warn: (error: unknown) => void
+    private readonly _warn: (error: unknown) => void,
+    private readonly _preferences: LoadoutPreferencesController
   ) {}
 
   private _current(): LoadoutContext | null {
@@ -55,6 +60,7 @@ export class LoadoutController {
     return {
       ...selected,
       mapId,
+      gameMode: league.data.gameflow.session?.map.gameMode ?? '',
       key: JSON.stringify([
         league.state.auth?.pid,
         this._sgp.state.availability.sgpServerId,
@@ -62,7 +68,8 @@ export class LoadoutController {
         session!.id,
         session!.gameId,
         selected,
-        mapId
+        mapId,
+        league.data.gameflow.session?.map.gameMode
       ])
     }
   }
@@ -74,6 +81,8 @@ export class LoadoutController {
     this._generation++
     this._abort?.abort()
     this._context = next
+    this._flash = null
+    this._details = {}
     // Keep the applied plan on a role swap so its mismatch can be explained.
     const sameSession =
       next &&
@@ -101,7 +110,10 @@ export class LoadoutController {
       title: this._entry?.content.title ?? '',
       busy: this._applying,
       parts: { ...this._parts },
-      issue: this._issue
+      issue: this._issue,
+      details: structuredClone(this._details),
+      flash: this._flash,
+      flashSlot: this._preferences.value.flashSlot
     }
   }
 
@@ -162,6 +174,66 @@ export class LoadoutController {
     return runes
   }
 
+  preferences() {
+    return { ...this._preferences.value }
+  }
+  async savePreferences(value: LoadoutPreferences) {
+    const saved = await this._preferences.save(value)
+    void this.check()
+    return saved
+  }
+  private _choiceKey() {
+    const context = this._context!
+    return JSON.stringify([
+      this._sgp.state.availability.sgpServerId,
+      this._league.data.summoner.me!.puuid,
+      context.championId,
+      context.mapId,
+      context.position,
+      context.gameMode
+    ])
+  }
+  async preferred(contextKey: string) {
+    const guard = this._guard()
+    if (this._context!.key !== contextKey) throw new Error('Session changed')
+    const id = await this._preferences.choice(this._choiceKey())
+    guard()
+    if (!id) return null
+    const entry = await this._notebooks.get(id)
+    guard()
+    const context = this._context!
+    return !entry.deleted &&
+      entry.content.kind === 'build' &&
+      entry.content.championId === context.championId &&
+      (entry.content.mapId ?? 11) === context.mapId &&
+      (!entry.content.position || entry.content.position === context.position)
+      ? entry
+      : null
+  }
+  async capture(championId: number): Promise<CapturedLoadout> {
+    const guard = this._guard(),
+      context = this._context!
+    if (context.championId !== championId || ![11, 12].includes(context.mapId))
+      throw new Error('Selection mismatch')
+    const [pages, selections, itemSets] = await Promise.all([
+      this._league.api.perks.getPerkPages({ signal: AbortSignal.timeout(10000) }),
+      this._league.api.champSelect.getMySelections({ signal: AbortSignal.timeout(10000) }),
+      this._builds.capture(guard)
+    ])
+    guard()
+    const page = runesSchema.safeParse(pages.data.find((p) => p.current && p.isValid))
+    const spells = spellsSchema.safeParse(selections.data)
+    return {
+      context,
+      runes:
+        page.success && validRunes(page.data, this._league.data.gameData.perkstyles.styles)
+          ? page.data
+          : null,
+      spells: spells.success ? spells.data : null,
+      itemSets
+    }
+  }
+
   apply(request: LoadoutApply): Promise<LoadoutStatus> {
     if (this._applying || this._disposed) return Promise.reject(new Error('busy'))
     this._applying = true
@@ -181,19 +253,36 @@ export class LoadoutController {
         (entry.content.position && entry.content.position !== context.position)
       )
         throw new Error('Selection mismatch')
+      const retry = request.retry === true
+      if (
+        retry &&
+        (this._entry?.id !== entry.id || this._entry.revision !== entry.revision || this._issue)
+      )
+        throw new Error('Retry target changed')
+      const retryParts = retry
+        ? (['runes', 'spells', 'items'] as const).filter(
+            (p) => !['matched', 'skipped'].includes(this._parts[p])
+          )
+        : null
+      if (retry) await this._verify(entry, guard)
+      guard()
+      const preferences = this._preferences.value
+      this._flash = null
       this._entry = entry
       this._issue = null
-      this._parts = {
-        runes: entry.content.runes ? 'pending' : 'skipped',
-        spells: entry.content.spells ? 'pending' : 'skipped',
-        items: entry.content.groups.some((g) => g.items.length) ? 'pending' : 'skipped'
-      }
+      if (!retry)
+        this._parts = {
+          runes: entry.content.runes ? 'pending' : 'skipped',
+          spells: entry.content.spells ? 'pending' : 'skipped',
+          items: entry.content.groups.some((g) => g.items.length) ? 'pending' : 'skipped'
+        }
       this._abort = new AbortController()
       const options = () => ({
         signal: AbortSignal.any([this._abort!.signal, AbortSignal.timeout(15000)])
       })
       const assertEntry = async () => {
         guard()
+        if (preferences !== this._preferences.value) throw new Error('Preferences changed')
         const latest = await this._notebooks.get(entry.id)
         guard()
         if (latest.deleted || latest.revision !== entry.revision) {
@@ -202,7 +291,12 @@ export class LoadoutController {
         }
       }
       for (const part of ['items', 'runes', 'spells'] as const) {
-        if (this._parts[part] === 'skipped') continue
+        if (
+          this._parts[part] === 'skipped' ||
+          (retryParts && (!retryParts.includes(part) || this._parts[part] === 'matched'))
+        )
+          continue
+        this._parts[part] = 'pending'
         try {
           await assertEntry()
           if (part === 'items') {
@@ -219,55 +313,16 @@ export class LoadoutController {
             guard()
             let page = pages.find((p) => p.isValid && sameRunes(p, runes))
             if (!page) {
-              const account = JSON.stringify([
-                this._league.state.auth?.pid,
-                this._league.data.summoner.me?.puuid,
-                this._sgp.state.availability.sgpServerId
-              ])
-              page =
-                this._runePage?.account === account
-                  ? pages.find(
-                      (p) =>
-                        p.id === this._runePage!.id &&
-                        p.isEditable &&
-                        p.name === 'League Akari Pro' &&
-                        sameRunes(p, this._runePage!.runes)
-                    )
-                  : undefined
+              page = pages.find((p) => p.current && p.isEditable) ?? pages.find((p) => p.isEditable)
               if (!page) {
-                const inventory = (await this._league.api.perks.getPerkInventory(options())).data
-                guard()
-                if (!inventory.canAddCustomPage) {
-                  this._parts.runes = 'noSpace'
-                  continue
-                }
-                await assertEntry()
-                page = (
-                  await this._league.api.perks.postPerkPage(
-                    {
-                      name: 'League Akari Pro',
-                      isEditable: true,
-                      primaryStyleId: String(runes.primaryStyleId)
-                    },
-                    options()
-                  )
-                ).data
-                guard()
-                this._runePage = {
-                  account,
-                  id: page.id,
-                  runes: {
-                    primaryStyleId: page.primaryStyleId,
-                    subStyleId: page.subStyleId,
-                    selectedPerkIds: page.selectedPerkIds
-                  }
-                }
+                this._parts.runes = 'noEditablePage'
+                continue
               }
               await assertEntry()
               await this._league.api.perks.putPage(
                 {
                   id: page.id,
-                  name: 'League Akari Pro',
+                  name: page.name,
                   isTemporary: false,
                   isRecommendationOverride: false,
                   ...runes
@@ -275,13 +330,12 @@ export class LoadoutController {
                 options()
               )
               guard()
-              this._runePage = { account, id: page.id, runes }
             }
             await assertEntry()
             await this._league.api.perks.putCurrentPage(page.id, options())
             guard()
           } else {
-            const spells = entry.content.spells!,
+            const spells = arrangeFlash(entry.content.spells!, preferences.flashSlot),
               data = this._league.data.gameData.summonerSpells
             const mode = this._league.data.gameflow.session?.map.gameMode
             const level = this._league.data.summoner.me!.summonerLevel
@@ -308,6 +362,15 @@ export class LoadoutController {
         }
       }
       await this._verify(entry, guard)
+      guard()
+      if (
+        !this._issue &&
+        Object.values(this._parts).some((state) => state === 'matched') &&
+        Object.values(this._parts).every((state) => state === 'matched' || state === 'skipped')
+      ) {
+        await this._preferences.remember(this._choiceKey(), entry.id)
+        guard()
+      }
       this._applying = false
       return this.status()
     })().finally(() => {
@@ -320,12 +383,14 @@ export class LoadoutController {
 
   check(): Promise<void> {
     this._reconcile()
-    if (this._task || this._disposed || !this._entry || !this._context) return Promise.resolve()
+    if (this._task || this._disposed || !this._context) return Promise.resolve()
     const entry = this._entry,
       guard = this._guard()
-    const task = this._verify(entry, guard)
+    const task = (async () => {
+      await this._checkFlash(guard)
+      if (entry) await this._verify(entry, guard)
+    })()
       .catch((error) => {
-        // A context change invalidates this read; the next poll checks the new context.
         if (this._entry === entry && this._context && !this._disposed) this._warn(error)
       })
       .finally(() => {
@@ -335,8 +400,55 @@ export class LoadoutController {
     return task
   }
 
+  private async _checkFlash(guard: () => void) {
+    const preferences = this._preferences.value
+    this._flash = null
+    if (preferences.flashSlot === 'none') return
+    try {
+      const current = spellsSchema.parse(
+        (await this._league.api.champSelect.getMySelections({ signal: AbortSignal.timeout(10000) }))
+          .data
+      )
+      guard()
+      if (preferences !== this._preferences.value) return
+      if (current.spell1Id !== 4 && current.spell2Id !== 4) return
+      const expected = arrangeFlash(current, preferences.flashSlot)
+      this._flash = current.spell1Id === expected.spell1Id ? 'matched' : 'mismatch'
+      if (this._flash !== 'mismatch' || !preferences.forceFlash) return
+      // Re-read immediately before the swap to preserve a newly selected non-flash spell.
+      const latest = spellsSchema.parse(
+        (await this._league.api.champSelect.getMySelections({ signal: AbortSignal.timeout(10000) }))
+          .data
+      )
+      guard()
+      if (
+        preferences !== this._preferences.value ||
+        latest.spell1Id !== current.spell1Id ||
+        latest.spell2Id !== current.spell2Id
+      )
+        return
+      await this._league.api.champSelect.setSummonerSpells(expected, {
+        signal: AbortSignal.timeout(10000)
+      })
+      guard()
+      const confirmed = (
+        await this._league.api.champSelect.getMySelections({ signal: AbortSignal.timeout(10000) })
+      ).data
+      guard()
+      this._flash =
+        confirmed.spell1Id === expected.spell1Id && confirmed.spell2Id === expected.spell2Id
+          ? 'matched'
+          : 'mismatch'
+    } catch (error) {
+      guard()
+      this._flash = 'failed'
+      this._warn(error)
+    }
+  }
+
   private async _verify(entry: NotebookEntry, guard: () => void) {
     guard()
+    this._details = {}
     const latest = await this._notebooks.get(entry.id)
     guard()
     if (latest.deleted || latest.revision !== entry.revision) {
@@ -355,16 +467,34 @@ export class LoadoutController {
         let matches: boolean
         if (part === 'runes') {
           const pages = (await this._league.api.perks.getPerkPages(options())).data
-          matches = pages.some((p) => p.current && p.isValid && sameRunes(p, entry.content.runes!))
+          guard()
+          const current = pages.find((p) => p.current && p.isValid)
+          matches = !!current && sameRunes(current, entry.content.runes!)
+          const parsed = runesSchema.safeParse(current)
+          if (!matches)
+            this._details.runes = {
+              current: parsed.success ? parsed.data : null,
+              expected: entry.content.runes!
+            }
         } else if (part === 'spells') {
           const current = (await this._league.api.champSelect.getMySelections(options())).data
-          matches =
-            current.spell1Id === entry.content.spells!.spell1Id &&
-            current.spell2Id === entry.content.spells!.spell2Id
-        } else matches = await this._builds.check(entry, guard)
+          guard()
+          const expected = arrangeFlash(entry.content.spells!, this._preferences.value.flashSlot)
+          matches = current.spell1Id === expected.spell1Id && current.spell2Id === expected.spell2Id
+          if (!matches)
+            this._details.spells = {
+              current: { spell1Id: current.spell1Id, spell2Id: current.spell2Id },
+              expected
+            }
+        } else {
+          const differences = await this._builds.differences(entry, guard)
+          guard()
+          matches = !differences.length
+          if (!matches) this._details.items = differences
+        }
         guard()
         if (matches) this._parts[part] = 'matched'
-        else if (!['conflict', 'noSpace', 'invalid', 'failed'].includes(this._parts[part]))
+        else if (!['conflict', 'noEditablePage', 'invalid', 'failed'].includes(this._parts[part]))
           this._parts[part] = 'mismatch'
       } catch (error) {
         guard()

@@ -1,12 +1,18 @@
 import type { LeagueClientMain } from '@main/shards/league-client'
 import type { SgpMain } from '@main/shards/sgp'
 import { type NotebookEntry, blankContent } from '@shared/pro/notebook'
-import { runesSchema, spellsSchema, validRunes } from '@shared/pro/notebook/loadout'
+import {
+  loadoutPreferencesSchema,
+  runesSchema,
+  spellsSchema,
+  validRunes
+} from '@shared/pro/notebook/loadout'
 import type { PerkPage } from '@shared/types/league-client/perks'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import type { BuildSyncController } from './build-sync-controller'
 import { LoadoutController } from './loadout-controller'
+import type { LoadoutPreferencesController } from './loadout-preferences-controller'
 import type { NotebookController } from './notebook-controller'
 
 const runes = {
@@ -31,6 +37,8 @@ const styles = {
   }
 }
 let entry: NotebookEntry, controller: LoadoutController, league: LeagueClientMain
+let preferences: LoadoutPreferencesController
+let choices: Map<string, string>
 let pages: PerkPage[], spells: { spell1Id: number; spell2Id: number }
 const getEntry = vi.fn(),
   buildApply = vi.fn(),
@@ -40,9 +48,24 @@ const getEntry = vi.fn(),
   putPage = vi.fn(),
   selectPage = vi.fn(),
   setSpells = vi.fn(),
-  inventory = vi.fn()
+  inventory = vi.fn(),
+  getSelections = vi.fn(),
+  captureItems = vi.fn()
 beforeEach(() => {
   vi.resetAllMocks()
+  choices = new Map()
+  preferences = {
+    value: loadoutPreferencesSchema.parse({}),
+    choice: async (key: string) => choices.get(key) ?? null,
+    remember: async (key: string, id: string) => {
+      choices.set(key, id)
+    },
+    save: async (value: unknown) => {
+      preferences.value = loadoutPreferencesSchema.parse(value)
+      return preferences.value
+    }
+  } as unknown as LoadoutPreferencesController
+  captureItems.mockResolvedValue([])
   entry = {
     id: '00000000-0000-4000-8000-000000000001',
     revision: 1,
@@ -90,7 +113,7 @@ beforeEach(() => {
   putPage.mockImplementation(async (page) => {
     Object.assign(
       pages.find((p) => p.id === page.id)!,
-      page,
+      structuredClone(page),
       { isValid: true }
     )
   })
@@ -100,6 +123,7 @@ beforeEach(() => {
   setSpells.mockImplementation(async (value) => {
     spells = value
   })
+  getSelections.mockImplementation(async () => ({ data: { ...spells } }))
   league = {
     state: { isConnected: true, auth: { pid: 1 } },
     data: {
@@ -130,15 +154,20 @@ beforeEach(() => {
         putPage,
         putCurrentPage: selectPage
       },
-      champSelect: { setSummonerSpells: setSpells, getMySelections: async () => ({ data: spells }) }
+      champSelect: { setSummonerSpells: setSpells, getMySelections: getSelections }
     }
   } as unknown as LeagueClientMain
   controller = new LoadoutController(
     { get: getEntry } as unknown as NotebookController,
-    { apply: buildApply, check: buildCheck } as unknown as BuildSyncController,
+    {
+      apply: buildApply,
+      differences: async () => ((await buildCheck()) ? [] : ['blocks']),
+      capture: captureItems
+    } as unknown as BuildSyncController,
     league,
     { state: { availability: { sgpServerId: 'EUW' } } } as SgpMain,
-    () => {}
+    () => {},
+    preferences
   )
 })
 afterEach(async () => {
@@ -153,7 +182,7 @@ const request = () => ({
   mode: 'apply' as const
 })
 
-it('applies and verifies all parts, preserves unrelated rune pages, and reuses matching pages', async () => {
+it('replaces the current editable rune page without creating pages, and reuses matching runes', async () => {
   const original = structuredClone(pages[0])
   await controller.apply(request())
   expect(controller.status().parts).toEqual({
@@ -161,18 +190,18 @@ it('applies and verifies all parts, preserves unrelated rune pages, and reuses m
     spells: 'matched',
     items: 'matched'
   })
-  expect(pages[0]).toEqual({ ...original, current: false })
+  expect(pages[0]).toMatchObject({ id: original.id, name: original.name, current: true, ...runes })
   expect(spells).toEqual(entry.content.spells)
   await controller.apply(request())
-  expect(createPage).toHaveBeenCalledTimes(1)
+  expect(createPage).not.toHaveBeenCalled()
   expect(putPage).toHaveBeenCalledTimes(1)
 })
 
-it('reports a full rune inventory without overwriting pages and still verifies the other parts', async () => {
-  inventory.mockResolvedValue({ data: { canAddCustomPage: false } })
+it('reports no editable page without creating one and still verifies the other parts', async () => {
+  pages[0].isEditable = false
   await controller.apply(request())
   expect(controller.status().parts).toEqual({
-    runes: 'noSpace',
+    runes: 'noEditablePage',
     spells: 'matched',
     items: 'matched'
   })
@@ -250,15 +279,13 @@ it('rejects stale requests and invalid resource combinations before their writes
   expect(setSpells).not.toHaveBeenCalled()
 })
 
-it('keeps manually edited Pro pages intact on the next application', async () => {
+it('replaces an existing editable fallback when the current page is read-only', async () => {
+  pages[0].isEditable = false
+  pages.push({ ...pages[0], id: 43, current: false, isEditable: true, name: 'Fallback' })
   await controller.apply(request())
-  pages[1].selectedPerkIds = [99]
-  inventory.mockResolvedValue({ data: { canAddCustomPage: false } })
-  putPage.mockClear()
-  await controller.apply(request())
-  expect(controller.status().parts.runes).toBe('noSpace')
-  expect(putPage).not.toHaveBeenCalled()
-  expect(pages[1].selectedPerkIds).toEqual([99])
+  expect(putPage.mock.calls[0][0]).toMatchObject({ id: 43, name: 'Fallback' })
+  expect(pages[0].selectedPerkIds).toEqual([10])
+  expect(createPage).not.toHaveBeenCalled()
 })
 
 it('accepts repeated stat shards but rejects incomplete runes and duplicate spells at the boundary', () => {
@@ -284,7 +311,7 @@ it.each(['read', 'write'] as const)(
     expect(controller.status().issue).toBe('changed')
     expect(selectPage).not.toHaveBeenCalled()
     expect(setSpells).not.toHaveBeenCalled()
-    if (stage === 'read') expect(createPage).not.toHaveBeenCalled()
+    if (stage === 'read') expect(putPage).not.toHaveBeenCalled()
   }
 )
 
@@ -311,4 +338,127 @@ it('gives runes and spells their own timeout after a slow item-set operation', a
     spells: 'matched',
     items: 'matched'
   })
+})
+
+it('retries only unsuccessful parts, and skips a failed write already confirmed by readback', async () => {
+  setSpells.mockRejectedValue(new Error('offline'))
+  await controller.apply(request())
+  expect(controller.status().parts.spells).toBe('failed')
+  buildApply.mockClear()
+  putPage.mockClear()
+  selectPage.mockClear()
+  setSpells.mockImplementation(async (value) => {
+    spells = value
+  })
+  await controller.apply({ ...request(), retry: true })
+  expect(controller.status().parts.spells).toBe('matched')
+  expect(buildApply).not.toHaveBeenCalled()
+  expect(putPage).not.toHaveBeenCalled()
+  expect(selectPage).not.toHaveBeenCalled()
+  expect(setSpells).toHaveBeenCalledTimes(2)
+  await controller.apply({ ...request(), retry: true })
+  expect(setSpells).toHaveBeenCalledTimes(2)
+})
+
+it('reports exact spell and rune differences without changing an applied plan', async () => {
+  await controller.apply(request())
+  spells = { spell1Id: 12, spell2Id: 4 }
+  pages[0].selectedPerkIds[0] = 999
+  buildCheck.mockResolvedValue(false)
+  await controller.check()
+  expect(controller.status().details).toMatchObject({
+    spells: { current: spells, expected: entry.content.spells },
+    runes: {
+      current: { selectedPerkIds: [999, ...runes.selectedPerkIds.slice(1)] },
+      expected: runes
+    },
+    items: ['blocks']
+  })
+})
+
+it('remembers only successful plans and separates choices by champion, role, mode and account', async () => {
+  buildCheck.mockResolvedValue(false)
+  await controller.apply(request())
+  expect(choices.size).toBe(0)
+  buildCheck.mockResolvedValue(true)
+  await controller.apply(request())
+  expect((await controller.preferred(controller.status().context!.key))?.id).toBe(entry.id)
+  for (const change of [
+    () => {
+      league.data.summoner.me!.puuid = 'other'
+    },
+    () => {
+      league.data.champSelect.session!.myTeam[0].assignedPosition = 'jungle'
+    },
+    () => {
+      league.data.champSelect.session!.myTeam[0].championId = 64
+    },
+    () => {
+      league.data.gameflow.session!.map.gameMode = 'ARAM'
+    }
+  ]) {
+    change()
+    expect(await controller.preferred(controller.status().context!.key)).toBeNull()
+  }
+})
+
+it.each(['D', 'F'] as const)(
+  'applies the preferred %s Flash slot and enforces it only when enabled',
+  async (slot) => {
+    preferences.value = { flashSlot: slot, forceFlash: false }
+    await controller.apply(request())
+    expect(spells[slot === 'D' ? 'spell1Id' : 'spell2Id']).toBe(4)
+    spells = slot === 'D' ? { spell1Id: 12, spell2Id: 4 } : { spell1Id: 4, spell2Id: 12 }
+    setSpells.mockClear()
+    await controller.check()
+    expect(controller.status().flash).toBe('mismatch')
+    expect(setSpells).not.toHaveBeenCalled()
+    preferences.value = { flashSlot: slot, forceFlash: true }
+    await controller.check()
+    expect(controller.status().flash).toBe('matched')
+    expect(setSpells).toHaveBeenCalledTimes(1)
+    await controller.check()
+    expect(setSpells).toHaveBeenCalledTimes(1)
+  }
+)
+
+it('enforces Flash without an applied plan, preserves the other spell, and never inserts Flash', async () => {
+  preferences.value = { flashSlot: 'D', forceFlash: true }
+  await controller.check()
+  expect(spells).toEqual({ spell1Id: 4, spell2Id: 12 })
+  setSpells.mockClear()
+  spells = { spell1Id: 11, spell2Id: 12 }
+  await controller.check()
+  expect(setSpells).not.toHaveBeenCalled()
+  expect(controller.status().flash).toBeNull()
+})
+
+it('does not force a stale spell pair or write after leaving champion select', async () => {
+  preferences.value = { flashSlot: 'D', forceFlash: true }
+  getSelections
+    .mockImplementationOnce(async () => ({ data: { spell1Id: 12, spell2Id: 4 } }))
+    .mockImplementationOnce(async () => ({ data: { spell1Id: 11, spell2Id: 4 } }))
+  await controller.check()
+  expect(setSpells).not.toHaveBeenCalled()
+  getSelections.mockImplementationOnce(async () => {
+    league.data.gameflow.phase = 'GameStart'
+    return { data: spells }
+  })
+  await controller.check()
+  expect(setSpells).not.toHaveBeenCalled()
+})
+
+it('captures a preview without writing and rejects snapshots from a changed selection', async () => {
+  pages[0] = { ...pages[0], ...runes }
+  captureItems.mockResolvedValue([{ uid: 'items', title: 'Build', groups: entry.content.groups }])
+  const preview = await controller.capture(103)
+  expect(preview).toMatchObject({ runes, spells, itemSets: [{ uid: 'items' }] })
+  expect(putPage).not.toHaveBeenCalled()
+  expect(setSpells).not.toHaveBeenCalled()
+  await expect(controller.capture(64)).rejects.toThrow('Selection mismatch')
+  captureItems.mockImplementation(async () => {
+    league.data.summoner.me!.puuid = 'other'
+    return []
+  })
+  await expect(controller.capture(103)).rejects.toThrow('Session changed')
 })

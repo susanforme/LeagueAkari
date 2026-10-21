@@ -12,7 +12,7 @@
       </NRadioGroup>
     </div>
     <NScrollbar class="min-h-0 flex-1">
-      <div class="flex flex-col gap-4 p-6">
+      <div class="flex min-w-0 flex-col gap-4 px-6 py-4">
         <PracticePanel
           v-show="tab === 'practice'"
           :active="tab === 'practice' && active"
@@ -48,10 +48,17 @@
             </NSpin>
           </div>
           <template v-if="championId">
-            <div class="flex flex-wrap items-center gap-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
               <NButton size="small" @click="selectChampion(null)"
                 >← {{ t('backToChampions') }}</NButton
               >
+              <NDropdown trigger="click" :options="createOptions" @select="newEntry">
+                <NButton size="small" type="primary" :disabled="busy"
+                  >{{ t('newEntry') }} ＋</NButton
+                >
+              </NDropdown>
+            </div>
+            <div class="flex min-w-0 items-center gap-3">
               <ChampionIcon :champion-id="championId" class="size-14! rounded-lg" />
               <div class="flex min-w-0 flex-1 flex-col gap-1">
                 <span class="text-xl font-bold">{{ resources.champions.name(championId) }}</span>
@@ -59,9 +66,6 @@
                   t('entryCount', { count: selectedSummary.total })
                 }}</span>
               </div>
-              <NDropdown trigger="click" :options="createOptions" @select="newEntry">
-                <NButton type="primary" :disabled="busy">{{ t('newEntry') }} ＋</NButton>
-              </NDropdown>
             </div>
             <div class="flex flex-wrap gap-2">
               <NButton
@@ -94,10 +98,11 @@
                 }}</span></NButton
               >
             </div>
-            <div class="flex flex-wrap items-center gap-3">
+            <div class="notebook-filters flex flex-wrap items-center gap-2">
               <NInput
                 v-model:value="search"
-                class="min-w-48 flex-1"
+                class="filter-search"
+                size="small"
                 clearable
                 :maxlength="200"
                 :placeholder="t('search')"
@@ -105,17 +110,14 @@
               />
               <EntitySelect
                 v-model:value="opponentId"
-                class="min-w-48 flex-1"
+                size="small"
                 :options="champions"
                 kind="champion"
                 :placeholder="t('opponent')"
               />
-              <NButton size="small" @click="refresh">{{ t('refresh') }}</NButton>
-            </div>
-            <div class="flex flex-wrap gap-3">
               <NInput
                 v-model:value="targetPatch"
-                class="w-48!"
+                size="small"
                 :maxlength="20"
                 clearable
                 :placeholder="tw('targetPatch')"
@@ -123,55 +125,76 @@
               />
               <NSelect
                 v-model:value="reviewState"
-                class="w-48!"
+                size="small"
                 :disabled="!validPatch"
                 :options="reviewOptions"
                 :aria-label="tw('patchReview')"
               />
+              <NButton size="small" secondary @click="refresh">{{ t('refresh') }}</NButton>
             </div>
             <NAlert v-if="error" type="error" closable @close="error = ''">{{ t(error) }}</NAlert>
             <NSpin :show="loading">
               <div class="flex flex-col gap-3">
-                <NCard v-for="entry in result?.items" :key="entry.id" size="small">
+                <NCard
+                  v-for="entry in result?.items"
+                  :key="entry.id"
+                  size="small"
+                  class="entry-card"
+                >
                   <template #header>
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                       <ChampionIcon
                         :champion-id="entry.content.championId"
                         class="size-8! rounded"
                       />
-                      <NButton text @click="view(entry)">{{ entry.content.title }}</NButton>
+                      <NButton text class="entry-title" @click="view(entry)">{{
+                        entry.content.title
+                      }}</NButton>
                       <NTag size="small">{{ t(`kinds.${entry.content.kind}`) }}</NTag>
                       <NTag v-if="entry.content.pinned" size="small" type="warning">{{
                         t('pinned')
                       }}</NTag>
                     </div>
                   </template>
-                  <template #header-extra>
+                  <EntryBody :content="entry.content" :skills="skills" compact />
+                  <div
+                    class="mt-4 flex flex-wrap items-center gap-2 border-t border-(--la-color-popover-border) pt-3"
+                  >
                     <div class="flex flex-wrap gap-2">
                       <template v-if="!entry.deleted">
-                        <NButton size="tiny" :disabled="busy" @click="edit(entry)">{{
+                        <NButton size="small" secondary :disabled="busy" @click="edit(entry)">{{
                           t('edit')
                         }}</NButton>
-                        <NButton size="tiny" :disabled="busy" @click="mutate(entry, 'pin')">{{
-                          t(entry.content.pinned ? 'unpin' : 'pin')
-                        }}</NButton>
-                        <NButton size="tiny" :disabled="busy" @click="copy(entry)">{{
+                        <NButton
+                          size="small"
+                          quaternary
+                          :disabled="busy"
+                          @click="mutate(entry, 'pin')"
+                          >{{ t(entry.content.pinned ? 'unpin' : 'pin') }}</NButton
+                        >
+                        <NButton size="small" quaternary :disabled="busy" @click="copy(entry)">{{
                           t('copy')
                         }}</NButton>
-                        <NButton size="tiny" :disabled="busy" @click="mutate(entry, 'trash')">{{
-                          t('delete')
-                        }}</NButton>
+                        <NButton
+                          size="small"
+                          quaternary
+                          :disabled="busy"
+                          @click="mutate(entry, 'trash')"
+                          >{{ t('delete') }}</NButton
+                        >
                       </template>
                       <NButton
                         v-else
-                        size="tiny"
+                        size="small"
                         :disabled="busy"
                         @click="mutate(entry, 'recover')"
                         >{{ t('recover') }}</NButton
                       >
-                      <NButton size="tiny" @click="showHistory(entry)">{{ t('history') }}</NButton>
+                      <NButton size="small" quaternary @click="showHistory(entry)">{{
+                        t('history')
+                      }}</NButton>
                     </div>
-                  </template>
+                  </div>
                   <NotebookEntryTools
                     v-if="!entry.deleted"
                     :entry="entry"
@@ -179,14 +202,6 @@
                     @open="view"
                     @changed="refresh"
                   />
-                  <div class="line-clamp-2 break-words whitespace-pre-wrap opacity-75">
-                    {{ entry.content.text }}
-                  </div>
-                  <div v-if="entry.content.opponentId" class="mt-2 flex items-center gap-2">
-                    {{ t('against') }}
-                    <ChampionIcon :champion-id="entry.content.opponentId" class="size-6! rounded" />
-                    {{ resources.champions.name(entry.content.opponentId) }}
-                  </div>
                 </NCard>
                 <NEmpty
                   v-if="result && !result.total"
@@ -276,6 +291,9 @@
         }
       "
     >
+      <NScrollbar style="max-height: 70vh"
+        ><EntryBody v-if="viewing" :content="viewing.content" :skills="skills"
+      /></NScrollbar>
       <NotebookEntryTools
         v-if="viewing && !viewing.deleted"
         :entry="viewing"
@@ -288,9 +306,6 @@
           }
         "
       />
-      <NScrollbar style="max-height: 70vh"
-        ><EntryBody v-if="viewing" :content="viewing.content" :skills="skills"
-      /></NScrollbar>
       <div v-if="viewing && !viewing.deleted" class="mt-4 flex justify-end gap-2">
         <NButton
           @click="
@@ -753,3 +768,29 @@ useWorkspaceState(
   })
 )
 </script>
+
+<style scoped>
+.notebook-filters > :deep(.n-input),
+.notebook-filters > :deep(.n-select) {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 180px;
+}
+.notebook-filters > .filter-search {
+  flex: 2 1 260px;
+}
+.entry-card {
+  border-radius: 8px;
+  background: var(--la-card-surface-90);
+}
+.entry-title {
+  min-width: 0;
+  max-width: 100%;
+  font-weight: 600;
+}
+.entry-title :deep(.n-button__content) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+</style>

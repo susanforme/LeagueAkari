@@ -1,11 +1,11 @@
 <template>
-  <div class="mt-3 flex flex-col gap-3">
+  <div class="mt-3 flex flex-col gap-3 rounded-lg bg-(--la-card-muted-surface) p-3">
     <LoadoutPanel
       v-if="entry.content.kind === 'build' && (entry.content.runes || entry.content.spells)"
       :key="entry.id"
       :entry="entry"
     />
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex flex-wrap items-center gap-3">
       <NTag v-for="tag in entry.content.tags" :key="tag" size="small">{{ tag }}</NTag>
       <NTag v-if="entry.content.confirmedPatch" size="small">{{
         t('reviewed', { patch: entry.content.confirmedPatch })
@@ -20,16 +20,18 @@
       >
       <NButton
         v-if="targetPatch && entry.content.confirmedPatch !== targetPatch"
-        size="tiny"
+        size="small"
         :disabled="busy"
         @click="confirmPatch"
         >{{ t('confirmPatch') }}</NButton
       >
-      <NButton size="tiny" :disabled="busy" @click="practice">{{ t('addPractice') }}</NButton>
+      <NButton size="small" secondary :disabled="busy" @click="practice">{{
+        t('addPractice')
+      }}</NButton>
       <template
         v-if="entry.content.kind === 'build' && entry.content.groups.some((g) => g.items.length)"
       >
-        <NButton size="tiny" :disabled="busy" @click="apply('apply')">{{
+        <NButton size="small" :disabled="busy" @click="apply('apply')">{{
           t('applyBuild')
         }}</NButton>
         <NCheckbox :checked="rule.enabled" :disabled="busy" @update:checked="setRule">{{
@@ -38,15 +40,20 @@
       </template>
     </div>
     <div v-if="linked.length" class="flex flex-wrap gap-2">
-      <NButton v-for="link in linked" :key="link.id" text size="tiny" @click="emit('open', link)">{{
-        link.content.title
-      }}</NButton>
+      <NButton
+        v-for="link in linked"
+        :key="link.id"
+        text
+        size="small"
+        @click="emit('open', link)"
+        >{{ link.content.title }}</NButton
+      >
     </div>
     <NAlert v-if="state" :type="state === 'failed' || state === 'conflict' ? 'error' : 'info'">
       {{ state === 'pending' ? t('awaitingConfirmation') : t(`states.${state}`) }}
       <div v-if="state === 'conflict' && entry.content.kind === 'build'" class="mt-2 flex gap-2">
-        <NButton size="tiny" :disabled="busy" @click="apply('new')">{{ t('createCopy') }}</NButton>
-        <NButton size="tiny" :disabled="busy" @click="confirmOverwrite">{{
+        <NButton size="small" :disabled="busy" @click="apply('new')">{{ t('createCopy') }}</NButton>
+        <NButton size="small" :disabled="busy" @click="confirmOverwrite">{{
           t('overwrite')
         }}</NButton>
       </div>

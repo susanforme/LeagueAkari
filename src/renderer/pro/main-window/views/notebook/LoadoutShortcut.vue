@@ -50,7 +50,11 @@ async function poll() {
     const problems = (['runes', 'spells', 'items'] as const).filter(
       (p) => !['matched', 'skipped'].includes(status.parts[p])
     )
-    warning.value = !!status.entryId && !status.busy && (!!status.issue || problems.length > 0)
+    warning.value =
+      !status.busy &&
+      ((!!status.entryId && (!!status.issue || problems.length > 0)) ||
+        status.flash === 'mismatch' ||
+        status.flash === 'failed')
     if (!warning.value) {
       shown?.destroy()
       shown = undefined
@@ -60,15 +64,21 @@ async function poll() {
         status.context?.key,
         status.entryId,
         status.issue,
+        status.flash,
         problems.map((p) => [p, status.parts[p]])
       ])
       if (signature !== lastWarning) {
         shown?.destroy()
         lastWarning = signature
         shown = notification.warning({
-          title: t('warning', { title: status.title }),
+          title: status.entryId ? t('warning', { title: status.title }) : t('flashSlot'),
           content: [
             status.issue ? t(status.issue) : '',
+            status.flash === 'mismatch'
+              ? t('flashMismatch')
+              : status.flash === 'failed'
+                ? t('flashFailed')
+                : '',
             ...problems.map((p) => `${t(p)} · ${t(`states.${status.parts[p]}`)}`)
           ]
             .filter(Boolean)

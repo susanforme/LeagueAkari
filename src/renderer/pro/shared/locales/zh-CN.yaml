@@ -441,8 +441,8 @@ pro:
     reviewed: '已核对 {{patch}}'
     addPractice: '加入练习'
     exportBuild: '导出装备方案'
-    applyBuild: '应用到客户端'
-    autoBuild: '选用英雄时同步此方案'
+    applyBuild: '同步装备方案'
+    autoBuild: '自动同步装备方案'
     createCopy: '创建副本'
     overwrite: '覆盖此方案'
     overwriteQuestion: '客户端中的此方案已修改，确认覆盖？其他方案不变。'
@@ -728,7 +728,7 @@ pro:
     position: 位置已变化，当前打法不适用，请重新选择。
     changed: 手册方案已修改或删除，请重新选择并应用。
     warning: '「{{title}}」配置需要检查'
-    noSpaceHelp: 客户端符文页已满，请释放一个符文页后重试。
+    noEditablePageHelp: 没有可替换的符文页，请在客户端准备一个可编辑页面。
     states:
       skipped: 未配置
       pending: 待确认
@@ -736,5 +736,37 @@ pro:
       mismatch: 与方案不符
       failed: 无法确认，请重试
       conflict: 客户端方案已修改
-      noSpace: 符文页已满
+      noEditablePage: 没有可编辑符文页
       invalid: 当前客户端不支持此配置
+    settings: '打法配置'
+    flashSlot: '闪现位置'
+    forceFlash: '选人期间强制修正闪现位置'
+    forceFlashHelp: '只交换已携带闪现的 D/F，不会替换另一项技能；关闭时只提醒。应用方案时仍按所选位置排列。'
+    settingsFailed: '设置读取或保存失败，请重试。'
+    flashMismatch: '闪现位置与偏好不一致。'
+    flashFailed: '闪现位置未能确认，请重新读取。'
+    retryFailed: '仅重试未成功项'
+    difference: '{{field}}：当前 {{current}} → 方案 {{expected}}'
+    noCurrentRunes: '客户端当前没有可核对的完整符文。'
+    primaryStyleId: '主系'
+    subStyleId: '副系'
+    keystone: '基石'
+    runeSlot: '符文第 {{index}} 项'
+    spellsReversed: 'D/F 召唤师技能与方案相反。'
+    captureLoadout: '读取当前整套配置'
+    capturePreview: '预览客户端配置'
+    captureLoadoutFailed: '无法读取配置，请在选人阶段选择当前英雄后重试。'
+    captureNoRunes: '当前符文不可用，保留草稿中的符文。'
+    captureNoSpells: '当前技能不可用，保留草稿中的技能。'
+    captureItems: '选择装备方案（不选则保留草稿）'
+    captureAccept: '填入草稿'
+    flashSlots:
+      none: 不调整
+      D: D 闪
+      F: F 闪
+    itemDifferences:
+      missing: 客户端缺少此装备方案。
+      title: 装备方案名称不同。
+      associatedChampions: 装备方案适用英雄不同。
+      associatedMaps: 装备方案适用地图不同。
+      blocks: 装备分组、顺序、物品或数量不同。

@@ -10,7 +10,7 @@ import {
   saveSchema,
   transferSchema
 } from '@shared/pro/notebook'
-import { loadoutApplySchema } from '@shared/pro/notebook/loadout'
+import { loadoutApplySchema, loadoutPreferencesSchema } from '@shared/pro/notebook/loadout'
 import { z } from 'zod'
 
 import { BuildSyncController, clientItemSet } from './build-sync-controller'
@@ -26,6 +26,16 @@ export function registerNotebookHandlers(
   builds: BuildSyncController,
   loadouts: LoadoutController
 ) {
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'loadoutPreferences', () => loadouts.preferences())
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'saveLoadoutPreferences', (_, value) =>
+    loadouts.savePreferences(loadoutPreferencesSchema.parse(value))
+  )
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'preferredLoadout', (_, key) =>
+    loadouts.preferred(z.string().min(1).max(2000).parse(key))
+  )
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'captureLoadout', (_, championId) =>
+    loadouts.capture(z.number().int().positive().parse(championId))
+  )
   ipc.onCall(NOTEBOOK_NAMESPACE, 'captureRunes', () => loadouts.captureRunes())
   ipc.onCall(NOTEBOOK_NAMESPACE, 'loadoutStatus', () => loadouts.status())
   ipc.onCall(NOTEBOOK_NAMESPACE, 'applyLoadout', (_, request) =>

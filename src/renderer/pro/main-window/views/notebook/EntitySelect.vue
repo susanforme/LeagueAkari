@@ -1,6 +1,7 @@
 <template>
   <NSelect
     :value="value"
+    :size="size"
     :options="selectOptions"
     :render-label="renderLabel"
     filterable
@@ -16,6 +17,7 @@ import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
 import { NSelect, type SelectOption } from 'naive-ui'
 import { computed, h } from 'vue'
 const props = defineProps<{
+  size?: 'small' | 'medium' | 'large'
   value: number | null
   options: { id: number; name: string; iconPath?: string }[]
   kind?: 'champion' | 'asset'

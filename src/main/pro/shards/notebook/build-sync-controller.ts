@@ -1,6 +1,6 @@
 import type { LeagueClientMain } from '@main/shards/league-client'
 import type { SgpMain } from '@main/shards/sgp'
-import type { BuildApply, NotebookEntry } from '@shared/pro/notebook'
+import { type BuildApply, type NotebookEntry, contentSchema } from '@shared/pro/notebook'
 import { type IReactionDisposer, reaction } from 'mobx'
 import { randomUUID } from 'node:crypto'
 import stringify from 'safe-stable-stringify'
@@ -138,7 +138,51 @@ export class BuildSyncController {
     )
     this._requestAuto()
   }
+  async capture(assertCurrent: () => void) {
+    assertCurrent()
+    const me = this._league.data.summoner.me!
+    const response = await this._league.http.get(
+      `/lol-item-sets/v1/item-sets/${me.summonerId}/sets`,
+      { timeout: 15000 }
+    )
+    assertCurrent()
+    const selection = this._selection()!
+    return collectionSchema.parse(response.data).itemSets.flatMap((value) => {
+      const set = z
+        .object({
+          uid: z.string(),
+          title: z.string().max(120),
+          associatedChampions: z.array(z.number()),
+          associatedMaps: z.array(z.number()),
+          blocks: z.array(
+            z.object({
+              type: z.string(),
+              items: z.array(z.object({ id: z.string(), count: z.number() }))
+            })
+          )
+        })
+        .safeParse(value)
+      if (!set.success) return []
+      const data = set.data
+      if (
+        (data.associatedChampions.length &&
+          !data.associatedChampions.includes(selection.championId)) ||
+        (data.associatedMaps.length && !data.associatedMaps.includes(selection.mapId!))
+      )
+        return []
+      const groups = contentSchema.shape.groups.safeParse(
+        data.blocks.map((b) => ({
+          name: b.type,
+          items: b.items.map((i) => ({ id: Number(i.id), count: i.count }))
+        }))
+      )
+      return groups.success ? [{ uid: data.uid, title: data.title, groups: groups.data }] : []
+    })
+  }
   async check(entry: NotebookEntry, assertCurrent: () => void) {
+    return !(await this.differences(entry, assertCurrent)).length
+  }
+  async differences(entry: NotebookEntry, assertCurrent: () => void): Promise<string[]> {
     assertCurrent()
     const me = this._league.data.summoner.me!
     const [mapping] = await this._database().query(
@@ -146,14 +190,18 @@ export class BuildSyncController {
       [entry.id, JSON.stringify([this._sgp.state.availability.sgpServerId, me.puuid])]
     )
     assertCurrent()
-    if (!mapping) return false
+    if (!mapping) return ['missing']
     const response = await this._league.http.get(
       `/lol-item-sets/v1/item-sets/${me.summonerId}/sets`,
       { timeout: 15000 }
     )
     assertCurrent()
     const found = collectionSchema.parse(response.data).itemSets.find((s) => s.uid === mapping.uid)
-    return !!found && matchesItemSet(found, clientItemSet(entry, mapping.uid))
+    if (!found) return ['missing']
+    const desired = clientItemSet(entry, mapping.uid)
+    return (['title', 'associatedChampions', 'associatedMaps', 'blocks'] as const).filter(
+      (key) => stringify(found[key]) !== stringify(desired[key])
+    )
   }
   apply(
     request: BuildApply,
