@@ -1,7 +1,7 @@
 import type { AkariIpcMain } from '@main/shards/ipc'
-import { playerSchema } from '@shared/pro/champion-pool'
 import {
   PROFILE_NAMESPACE,
+  profileActivitySchema,
   profileHistorySchema,
   profileMatchesSchema,
   profileTrendSchema
@@ -17,7 +17,7 @@ export function registerProfileHandlers(ipc: AkariIpcMain, controller: ProfileCo
     controller.matches(profileMatchesSchema.parse(query))
   )
   ipc.onCall(PROFILE_NAMESPACE, 'activity', (_, player) =>
-    controller.activity(playerSchema.parse(player))
+    controller.activity(profileActivitySchema.parse(player))
   )
   ipc.onCall(PROFILE_NAMESPACE, 'trend', (_, query) =>
     controller.trend(profileTrendSchema.parse(query))

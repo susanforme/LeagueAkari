@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col gap-3">
     <NSelect v-model:value="playerKey" :options="playerOptions" :placeholder="t('player')" />
-    <NAlert v-if="error" type="error">{{ t('failed') }}</NAlert>
+
     <div class="flex flex-wrap gap-2">
       <NButton :disabled="!matches.length" @click="selected = matches.map((m) => m.gameId)">{{
         t('selectPage')
@@ -64,10 +64,12 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch, onMounted, onScopeDispose } from 'vue'
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
+import { computed, ref, shallowRef, watch, onActivated, onDeactivated, onScopeDispose } from 'vue'
 import {
   NSelect,
-  NAlert,
   NButton,
   NCheckbox,
   NCheckboxGroup,
@@ -106,12 +108,24 @@ const playerOptions = computed(() =>
     players.value.find((p) => JSON.stringify([p.serverId, p.puuid]) === playerKey.value)
   )
 let generation = 0,
-  stopped = false,
+  pollGeneration = 0,
+  stopped = true,
   timer: ReturnType<typeof setTimeout> | undefined
+useQueryCache(
+  () => JSON.stringify([playerKey.value, page.value]),
+  matches,
+  () => []
+)
+watch(
+  [playerKey, page],
+  () => {
+    selected.value = []
+  },
+  { flush: 'sync' }
+)
 async function load() {
   const g = ++generation
-  selected.value = []
-  matches.value = []
+  error.value = false
   if (!player.value) return
   try {
     const next = await api.candidates(player.value, page.value)
@@ -121,13 +135,17 @@ async function load() {
   }
 }
 async function poll() {
+  clearTimeout(timer)
+  if (stopped) return
+  const current = ++pollGeneration
+  error.value = false
   try {
     const next = await api.batches()
-    if (!stopped) batches.value = next
+    if (!stopped && current === pollGeneration) batches.value = next
   } catch {
-    if (!stopped) error.value = true
+    if (!stopped && current === pollGeneration) error.value = true
   } finally {
-    if (!stopped) timer = setTimeout(poll, 2000)
+    if (!stopped && current === pollGeneration) timer = setTimeout(poll, 2000)
   }
 }
 async function action(fn: () => Promise<unknown>) {
@@ -158,20 +176,35 @@ watch(playerKey, () => {
   void load()
 })
 watch(page, load)
-onMounted(async () => {
+onActivated(async () => {
+  stopped = false
   try {
     players.value = await pool.players()
     if (!stopped) {
-      playerKey.value = playerOptions.value[0]?.value ?? null
+      playerKey.value = playerOptions.value.some((p) => p.value === playerKey.value)
+        ? playerKey.value
+        : (playerOptions.value[0]?.value ?? null)
+      void load()
       void poll()
     }
   } catch {
     error.value = true
   }
 })
-onScopeDispose(() => {
+onDeactivated(() => {
   stopped = true
+  pollGeneration++
   generation++
   clearTimeout(timer)
 })
+onScopeDispose(() => {
+  stopped = true
+  pollGeneration++
+  generation++
+  clearTimeout(timer)
+})
+useRefreshFeedback(
+  () => error.value,
+  () => t('failed')
+)
 </script>

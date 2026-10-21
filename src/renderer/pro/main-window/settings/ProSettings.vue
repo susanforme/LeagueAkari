@@ -25,7 +25,7 @@
             remote
             filterable
             clearable
-            :loading="loading"
+            :loading="loading && !builds.length"
             :options="buildOptions"
             :placeholder="t('selectBuild')"
             class="min-w-48"
@@ -36,7 +36,6 @@
             t('exportBuild')
           }}</NButton></SettingsRow
         >
-        <NAlert v-if="error" type="error">{{ t('failed') }}</NAlert>
       </SettingsSection>
       <SettingsSection :title="t('proData')"
         ><SettingsRow :label="t('backupRestore')" :label-width="180"><DataPanel /></SettingsRow
@@ -45,8 +44,9 @@
   </NScrollbar>
 </template>
 <script setup lang="ts">
+import { useRefreshFeedback } from '../../shared/composables/useRefreshFeedback'
 import { computed, ref, onMounted, onScopeDispose } from 'vue'
-import { NScrollbar, NSelect, NButton, NAlert, useMessage } from 'naive-ui'
+import { NScrollbar, NSelect, NButton, useMessage } from 'naive-ui'
 import { useTranslation } from 'i18next-vue'
 import SettingsSection from '@renderer-shared/components/SettingsSection.vue'
 import SettingsRow from '@renderer-shared/components/SettingsRow.vue'
@@ -121,4 +121,8 @@ onScopeDispose(() => {
   active = false
   generation++
 })
+useRefreshFeedback(
+  () => error.value,
+  () => t('failed')
+)
 </script>

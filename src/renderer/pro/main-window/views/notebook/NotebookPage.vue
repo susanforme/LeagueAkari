@@ -5,245 +5,325 @@
     >
       <NIcon :component="BookOpen24Regular" size="22" />
       <span class="text-base font-bold">{{ t('title') }}</span>
-      <NRadioGroup v-model:value="tab" size="small">
-        <NRadioButton value="library">{{ t('library') }}</NRadioButton>
+      <NRadioGroup v-model:value="tab" size="small" @update:value="practiceEntryId = null">
+        <NRadioButton value="library">{{ th('title') }}</NRadioButton>
         <NRadioButton value="practice">{{ tw('practice') }}</NRadioButton>
         <NRadioButton value="quick">{{ t('quick') }}</NRadioButton>
       </NRadioGroup>
     </div>
     <NScrollbar class="min-h-0 flex-1">
       <div class="flex min-w-0 flex-col gap-4 px-6 py-4">
-        <PracticePanel
-          v-show="tab === 'practice'"
-          :active="tab === 'practice' && active"
-          :champion-id="championId"
-          @open="view"
-        />
-        <PreGameNotebook v-if="tab === 'quick' && active" />
-        <template v-else-if="tab === 'library'">
-          <NAlert v-if="unavailable" type="warning">
-            {{ t('resourcesUnavailable') }} <NButton text @click="reload">{{ t('retry') }}</NButton>
-          </NAlert>
+        <KeepAlive
+          ><PracticeWorkbench
+            v-if="tab === 'practice'"
+            :champion-id="practiceEntryId ? null : championId"
+            :entry-id="practiceEntryId"
+            :champions="champions"
+            @open="view"
+          />
+        </KeepAlive>
+        <KeepAlive
+          ><PreGameWorkbench
+            v-if="tab === 'quick'"
+            :initial-champion="championId"
+            @open="view"
+            @create="createMatchup"
+          />
+        </KeepAlive>
+        <template v-if="tab === 'library'">
           <NAlert v-if="importedBuild" type="info">
             {{ t('importReady') }}
             <NButton text @click="acceptImport">{{ t('openDraft') }}</NButton>
           </NAlert>
-          <NAlert v-if="summaryError" type="error">
-            {{ t('loadFailed') }} <NButton text @click="loadSummaries">{{ t('retry') }}</NButton>
-          </NAlert>
-          <div v-show="!championId">
-            <div class="mb-4 flex items-center justify-between">
-              <span class="text-base font-bold">{{ t('chooseChampion') }}</span>
-              <NButton size="small" :loading="summaryLoading" @click="loadSummaries">{{
-                t('refresh')
-              }}</NButton>
-            </div>
-            <NSpin :show="summaryLoading">
-              <ChampionDirectory
-                :champions="champions"
-                :summaries="summaries"
-                :loading="summaryLoading"
-                @select="selectChampion"
-              />
-            </NSpin>
-          </div>
-          <template v-if="championId">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <NButton size="small" @click="selectChampion(null)"
-                >← {{ t('backToChampions') }}</NButton
-              >
-              <NDropdown trigger="click" :options="createOptions" @select="newEntry">
-                <NButton size="small" type="primary" :disabled="busy"
-                  >{{ t('newEntry') }} ＋</NButton
+
+          <KeepAlive
+            ><AddChampion
+              v-if="directoryOpen"
+              :champions="champions"
+              @back="directoryOpen = false"
+              @select="chooseDirectoryChampion" />
+            <HandbookHome
+              v-else-if="!championId"
+              :active="active && tab === 'library'"
+              :champions="champions"
+              :revision="summaries"
+              @select="openChampion"
+              @open="view"
+              @browse="openDirectory"
+              @practice="openPractice" />
+            <ChampionWorkspace
+              v-else-if="championId"
+              :champion-id="championId"
+              :section="detailPractice ? 'practice' : (kind ?? 'overview')"
+              :revision="summaries"
+              :champions="champions"
+              @select="openChampion"
+              @home="selectChampion(null)"
+              @add="openDirectory(true)"
+              @section="selectSection"
+              @open="view"
+            >
+              <template #actions>
+                <NDropdown trigger="click" :options="createOptions" @select="newEntry"
+                  ><NButton size="small" type="primary" :disabled="busy"
+                    >{{ t('newEntry') }} ＋</NButton
+                  ></NDropdown
                 >
-              </NDropdown>
-            </div>
-            <div class="flex min-w-0 items-center gap-3">
-              <ChampionIcon :champion-id="championId" class="size-14! rounded-lg" />
-              <div class="flex min-w-0 flex-1 flex-col gap-1">
-                <span class="text-xl font-bold">{{ resources.champions.name(championId) }}</span>
-                <span v-if="selectedSummary" class="text-xs opacity-60">{{
-                  t('entryCount', { count: selectedSummary.total })
-                }}</span>
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <NButton
-                size="small"
-                :type="!kind && !deleted ? 'primary' : 'default'"
-                secondary
-                @click="selectKind(null)"
-                >{{ t('allKinds') }}</NButton
-              >
-              <NButton
-                v-for="value in kinds"
-                :key="value"
-                size="small"
-                :type="kind === value && !deleted ? 'primary' : 'default'"
-                secondary
-                @click="selectKind(value)"
-                >{{ t(`kinds.${value}`)
-                }}<span v-if="selectedSummary" class="ml-2 opacity-70">{{
-                  selectedSummary[value]
-                }}</span></NButton
-              >
-              <NButton
-                size="small"
-                :type="deleted ? 'warning' : 'default'"
-                quaternary
-                @click="deleted = !deleted"
-                >{{ t('trash')
-                }}<span v-if="selectedSummary?.trash" class="ml-1">{{
-                  selectedSummary.trash
-                }}</span></NButton
-              >
-            </div>
-            <div class="notebook-filters flex flex-wrap items-center gap-2">
-              <NInput
-                v-model:value="search"
-                class="filter-search"
-                size="small"
-                clearable
-                :maxlength="200"
-                :placeholder="t('search')"
-                :aria-label="t('search')"
-              />
-              <EntitySelect
-                v-model:value="opponentId"
-                size="small"
-                :options="champions"
-                kind="champion"
-                :placeholder="t('opponent')"
-              />
-              <NInput
-                v-model:value="targetPatch"
-                size="small"
-                :maxlength="20"
-                clearable
-                :placeholder="tw('targetPatch')"
-                :aria-label="tw('targetPatch')"
-              />
-              <NSelect
-                v-model:value="reviewState"
-                size="small"
-                :disabled="!validPatch"
-                :options="reviewOptions"
-                :aria-label="tw('patchReview')"
-              />
-              <NButton size="small" secondary @click="refresh">{{ t('refresh') }}</NButton>
-            </div>
-            <NAlert v-if="error" type="error" closable @close="error = ''">{{ t(error) }}</NAlert>
-            <NSpin :show="loading">
-              <div class="flex flex-col gap-3">
-                <NCard
-                  v-for="entry in result?.items"
-                  :key="entry.id"
+                <NButton
                   size="small"
-                  class="entry-card"
+                  :type="deleted ? 'warning' : 'default'"
+                  quaternary
+                  @click="toggleTrash"
+                  >{{ t('trash') }}</NButton
                 >
-                  <template #header>
-                    <div class="flex flex-wrap items-center gap-2">
-                      <ChampionIcon
-                        :champion-id="entry.content.championId"
-                        class="size-8! rounded"
-                      />
-                      <NButton text class="entry-title" @click="view(entry)">{{
-                        entry.content.title
-                      }}</NButton>
-                      <NTag size="small">{{ t(`kinds.${entry.content.kind}`) }}</NTag>
-                      <NTag v-if="entry.content.pinned" size="small" type="warning">{{
-                        t('pinned')
-                      }}</NTag>
+              </template>
+              <PracticeWorkbench
+                v-if="detailPractice"
+                :champion-id="championId"
+                :champions="champions"
+                @open="view"
+              />
+              <EntryWorkbench
+                v-else-if="(kind === 'combo' || kind === 'build') && !deleted"
+                :entries="result?.items ?? []"
+                :kind="kind"
+                :skills="skills"
+                :editing-id="inlineEditor ? editing?.id : undefined"
+                @create="newEntry(kind)"
+                @edit="edit"
+                @open="view"
+                @changed="refresh"
+                @manage="manageEntry"
+              >
+                <template v-if="inlineEditor && editing" #editor>
+                  <section class="hw-panel hw-stack">
+                    <h3>{{ t(editing.id ? 'edit' : 'newEntry') }}</h3>
+                    <NAlert v-if="editError" type="error">{{ t(editError) }}</NAlert>
+                    <NForm :disabled="busy" :inert="busy"
+                      ><EntryEditor
+                        :content="editing.content"
+                        :entry-id="editing.id"
+                        :catalog="catalog"
+                        :skills="skills"
+                        :champions="champions"
+                    /></NForm>
+                    <div class="hw-row">
+                      <NButton type="primary" :loading="busy" @click="save(false)">{{
+                        t('save')
+                      }}</NButton
+                      ><NButton :disabled="busy" @click="closeEditor">{{ t('cancel') }}</NButton
+                      ><NButton
+                        v-if="editError === 'conflict'"
+                        :disabled="busy"
+                        @click="save(true)"
+                        >{{ t('saveCopy') }}</NButton
+                      >
                     </div>
-                  </template>
-                  <EntryBody :content="entry.content" :skills="skills" compact />
-                  <div
-                    class="mt-4 flex flex-wrap items-center gap-2 border-t border-(--la-color-popover-border) pt-3"
-                  >
-                    <div class="flex flex-wrap gap-2">
-                      <template v-if="!entry.deleted">
-                        <NButton size="small" secondary :disabled="busy" @click="edit(entry)">{{
-                          t('edit')
-                        }}</NButton>
+                  </section>
+                </template>
+                <template #filters
+                  ><NInput
+                    v-model:value="search"
+                    size="small"
+                    clearable
+                    :placeholder="t('search')"
+                    :aria-label="t('search')"
+                  /><EntitySelect
+                    v-model:value="opponentId"
+                    size="small"
+                    :options="champions"
+                    kind="champion"
+                    :placeholder="t('opponent')"
+                  />
+                  <NInput
+                    v-model:value="targetPatch"
+                    size="small"
+                    :maxlength="20"
+                    clearable
+                    :placeholder="tw('targetPatch')"
+                    :aria-label="tw('targetPatch')"
+                  />
+                  <NSelect
+                    v-model:value="reviewState"
+                    size="small"
+                    :disabled="!validPatch"
+                    :options="reviewOptions"
+                    :aria-label="tw('patchReview')"
+                  />
+                </template>
+                <template #pagination
+                  ><NPagination
+                    v-if="result && result.total > 30"
+                    v-model:page="page"
+                    :page-size="30"
+                    :item-count="result.total"
+                    simple
+                /></template>
+              </EntryWorkbench>
+              <template v-else>
+                <div class="notebook-filters flex flex-wrap items-center gap-2">
+                  <NInput
+                    v-model:value="search"
+                    class="filter-search"
+                    size="small"
+                    clearable
+                    :maxlength="200"
+                    :placeholder="t('search')"
+                    :aria-label="t('search')"
+                  />
+                  <EntitySelect
+                    v-model:value="opponentId"
+                    size="small"
+                    :options="champions"
+                    kind="champion"
+                    :placeholder="t('opponent')"
+                  />
+                  <NInput
+                    v-model:value="targetPatch"
+                    size="small"
+                    :maxlength="20"
+                    clearable
+                    :placeholder="tw('targetPatch')"
+                    :aria-label="tw('targetPatch')"
+                  />
+                  <NSelect
+                    v-model:value="reviewState"
+                    size="small"
+                    :disabled="!validPatch"
+                    :options="reviewOptions"
+                    :aria-label="tw('patchReview')"
+                  />
+                  <RefreshButton secondary @click="refresh" />
+                </div>
+
+                <NSpin :show="loading && !result">
+                  <div class="flex flex-col gap-3">
+                    <NCard
+                      v-for="entry in result?.items"
+                      :key="entry.id"
+                      size="small"
+                      class="entry-card"
+                    >
+                      <template #header>
+                        <div class="flex flex-wrap items-center gap-2">
+                          <ChampionIcon
+                            :champion-id="entry.content.championId"
+                            class="size-8! rounded"
+                          />
+                          <NButton text class="entry-title" @click="view(entry)">{{
+                            entry.content.title
+                          }}</NButton>
+                          <NTag size="small">{{ t(`kinds.${entry.content.kind}`) }}</NTag>
+                          <NTag v-if="entry.content.pinned" size="small" type="warning">{{
+                            t('pinned')
+                          }}</NTag>
+                        </div>
+                      </template>
+                      <EntryBody :content="entry.content" :skills="skills" compact />
+                      <div
+                        class="mt-4 flex flex-wrap items-center gap-2 border-t border-(--la-color-popover-border) pt-3"
+                      >
+                        <div class="flex flex-wrap gap-2">
+                          <template v-if="!entry.deleted">
+                            <NButton size="small" secondary :disabled="busy" @click="edit(entry)">{{
+                              t('edit')
+                            }}</NButton>
+                            <NButton
+                              size="small"
+                              quaternary
+                              :disabled="busy"
+                              @click="mutate(entry, 'pin')"
+                              >{{ t(entry.content.pinned ? 'unpin' : 'pin') }}</NButton
+                            >
+                            <NButton
+                              size="small"
+                              quaternary
+                              :disabled="busy"
+                              @click="copy(entry)"
+                              >{{ t('copy') }}</NButton
+                            >
+                            <NButton
+                              size="small"
+                              quaternary
+                              :disabled="busy"
+                              @click="mutate(entry, 'trash')"
+                              >{{ t('delete') }}</NButton
+                            >
+                          </template>
+                          <NButton
+                            v-else
+                            size="small"
+                            :disabled="busy"
+                            @click="mutate(entry, 'recover')"
+                            >{{ t('recover') }}</NButton
+                          >
+                          <NButton size="small" quaternary @click="showHistory(entry)">{{
+                            t('history')
+                          }}</NButton>
+                        </div>
+                      </div>
+                      <NotebookEntryTools
+                        v-if="!entry.deleted"
+                        :entry="entry"
+                        :target-patch="validPatch"
+                        @open="view"
+                        @changed="refresh"
+                      />
+                    </NCard>
+                    <NEmpty
+                      v-if="result && !result.total"
+                      :description="
+                        t(
+                          deleted ? 'trashEmpty' : search || opponentId ? 'noEntriesMatch' : 'empty'
+                        )
+                      "
+                    >
+                      <template v-if="!deleted" #extra>
                         <NButton
+                          v-if="search || opponentId"
                           size="small"
-                          quaternary
-                          :disabled="busy"
-                          @click="mutate(entry, 'pin')"
-                          >{{ t(entry.content.pinned ? 'unpin' : 'pin') }}</NButton
+                          @click="
+                            () => {
+                              search = ''
+                              opponentId = null
+                            }
+                          "
+                          >{{ t('clearFilters') }}</NButton
                         >
-                        <NButton size="small" quaternary :disabled="busy" @click="copy(entry)">{{
-                          t('copy')
-                        }}</NButton>
                         <NButton
+                          v-else
                           size="small"
-                          quaternary
-                          :disabled="busy"
-                          @click="mutate(entry, 'trash')"
-                          >{{ t('delete') }}</NButton
+                          type="primary"
+                          @click="newEntry(kind ?? 'note')"
+                          >{{ t('create', { kind: t(`kinds.${kind ?? 'note'}`) }) }}</NButton
                         >
                       </template>
-                      <NButton
-                        v-else
-                        size="small"
-                        :disabled="busy"
-                        @click="mutate(entry, 'recover')"
-                        >{{ t('recover') }}</NButton
-                      >
-                      <NButton size="small" quaternary @click="showHistory(entry)">{{
-                        t('history')
-                      }}</NButton>
-                    </div>
+                    </NEmpty>
                   </div>
-                  <NotebookEntryTools
-                    v-if="!entry.deleted"
-                    :entry="entry"
-                    :target-patch="validPatch"
-                    @open="view"
-                    @changed="refresh"
-                  />
-                </NCard>
-                <NEmpty
-                  v-if="result && !result.total"
-                  :description="
-                    t(deleted ? 'trashEmpty' : search || opponentId ? 'noEntriesMatch' : 'empty')
-                  "
-                >
-                  <template v-if="!deleted" #extra>
-                    <NButton
-                      v-if="search || opponentId"
-                      size="small"
-                      @click="
-                        () => {
-                          search = ''
-                          opponentId = null
-                        }
-                      "
-                      >{{ t('clearFilters') }}</NButton
-                    >
-                    <NButton v-else size="small" type="primary" @click="newEntry(kind ?? 'note')">{{
-                      t('create', { kind: t(`kinds.${kind ?? 'note'}`) })
-                    }}</NButton>
-                  </template>
-                </NEmpty>
-              </div>
-            </NSpin>
-            <NPagination
-              v-if="result && result.total > 30"
-              v-model:page="page"
-              :page-size="30"
-              :item-count="result.total"
-            />
-          </template>
+                </NSpin>
+                <NPagination
+                  v-if="result && result.total > 30"
+                  v-model:page="page"
+                  :page-size="30"
+                  :item-count="result.total"
+                />
+              </template> </ChampionWorkspace
+          ></KeepAlive>
         </template>
       </div>
     </NScrollbar>
 
     <NModal
-      :show="!!editing && active"
+      :show="!!editing && active && !inlineEditor"
       preset="card"
       :title="t(editing?.id ? 'edit' : 'newEntry')"
-      class="w-200! max-w-[95vw]!"
+      :style="{
+        width:
+          editing?.content.kind === 'combo' || editing?.content.kind === 'build'
+            ? '1080px'
+            : '800px',
+        maxWidth: '95vw'
+      }"
       :mask-closable="false"
       :close-on-esc="!busy"
       @update:show="
@@ -340,8 +420,7 @@
         }
       "
     >
-      <NAlert v-if="historyError" type="error">{{ t(historyError) }}</NAlert>
-      <NSpin :show="historyLoading">
+      <NSpin :show="historyLoading && !history">
         <NScrollbar style="max-height: 65vh">
           <NCollapse>
             <NCollapseItem
@@ -370,6 +449,10 @@
   </div>
 </template>
 <script setup lang="ts">
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
+import RefreshButton from '../../../shared/components/RefreshButton.vue'
 import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
 import { useInstance } from '@renderer-shared/shards'
 import {
@@ -411,13 +494,16 @@ import {
 import { computed, onActivated, onDeactivated, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
-import ChampionDirectory from './ChampionDirectory.vue'
+import AddChampion from './workspace/AddChampion.vue'
+import ChampionWorkspace from './workspace/ChampionWorkspace.vue'
+import PracticeWorkbench from './workspace/PracticeWorkbench.vue'
+import PreGameWorkbench from './workspace/PreGameWorkbench.vue'
+import EntryWorkbench from './workspace/EntryWorkbench.vue'
+import HandbookHome from './HandbookHome.vue'
 import EntitySelect from './EntitySelect.vue'
 import EntryBody from './EntryBody.vue'
 import EntryEditor from './EntryEditor.vue'
-import PreGameNotebook from './PreGameNotebook.vue'
 import NotebookEntryTools from './NotebookEntryTools.vue'
-import PracticePanel from './PracticePanel.vue'
 import { importedBuild } from './import-draft'
 import { useNotebookResources } from './useNotebookResources'
 import { z } from 'zod'
@@ -429,6 +515,11 @@ const api = useInstance(NotebookRenderer)
 const dialog = useDialog()
 const route = useRoute()
 const router = useRouter()
+const { t: th } = useTranslation(undefined, { keyPrefix: 'pro.handbook' })
+const detailPractice = ref(false)
+const directoryOpen = ref(false),
+  directoryAdd = ref(false),
+  practiceEntryId = ref<string | null>(null)
 const active = ref(false)
 const tab = ref('library')
 const championId = ref<number | null>(null)
@@ -436,9 +527,6 @@ const opponentId = ref<number | null>(null)
 const summaries = shallowRef<NotebookChampionSummary[]>([])
 const summaryLoading = ref(false)
 const summaryError = ref(false)
-const selectedSummary = computed(() =>
-  summaries.value.find((row) => row.championId === championId.value)
-)
 const kind = ref<NotebookContent['kind'] | null>(null)
 const search = ref('')
 const targetPatch = ref(''),
@@ -459,6 +547,16 @@ const loading = ref(false)
 const error = ref('')
 const busy = ref(false)
 const editing = ref<SaveNotebook | null>(null)
+const inlineEditor = computed(
+  () =>
+    !!editing.value &&
+    editing.value.content.kind === 'combo' &&
+    kind.value === 'combo' &&
+    tab.value === 'library' &&
+    editing.value.content.championId === championId.value &&
+    !directoryOpen.value &&
+    !deleted.value
+)
 const editError = ref('')
 let savedDraft = ''
 const viewing = shallowRef<NotebookEntry | null>(null)
@@ -474,8 +572,7 @@ const focusChampion = computed(
     historyEntry.value?.content.championId ??
     championId.value
 )
-const { resources, catalog, champions, skills, unavailable, reload } =
-  useNotebookResources(focusChampion)
+const { resources, catalog, champions, skills, unavailable } = useNotebookResources(focusChampion)
 const createOptions = computed(() =>
   kinds.map((key) => ({ key, label: t('create', { kind: t(`kinds.${key}`) }) }))
 )
@@ -493,6 +590,24 @@ async function loadSummaries() {
   } finally {
     if (current === summaryGeneration) summaryLoading.value = false
   }
+}
+function openDirectory(add: boolean) {
+  directoryAdd.value = add
+  directoryOpen.value = true
+}
+async function openChampion(id: number, selectedKind?: NotebookContent['kind']) {
+  await router.push({ name: NOTEBOOK_ROUTE, query: { champion: String(id) } })
+  syncChampion()
+  kind.value = selectedKind ?? null
+  detailPractice.value = false
+}
+async function chooseDirectoryChampion(id: number) {
+  directoryOpen.value = false
+  await openChampion(id)
+}
+function openPractice(entryId: string | null) {
+  practiceEntryId.value = entryId
+  tab.value = 'practice'
 }
 function selectChampion(id: number | null) {
   void router.push({ name: NOTEBOOK_ROUTE, query: id ? { champion: id } : {} })
@@ -522,9 +637,23 @@ function syncChampion() {
   deleted.value = false
   tab.value = 'library'
 }
-function selectKind(value: NotebookContent['kind'] | null) {
-  kind.value = value
+function toggleTrash() {
+  deleted.value = !deleted.value
+  detailPractice.value = false
+  kind.value ??= 'note'
+}
+function selectSection(value: string) {
+  detailPractice.value = value === 'practice'
+  kind.value = ['note', 'combo', 'matchup', 'build'].includes(value)
+    ? (value as NotebookContent['kind'])
+    : null
   deleted.value = false
+}
+async function createMatchup(champion: number, opponent: number) {
+  await openChampion(champion, 'matchup')
+  tab.value = 'library'
+  newEntry('matchup')
+  if (editing.value) editing.value.content.opponentId = opponent
 }
 async function refresh() {
   await Promise.all([load(), loadSummaries()])
@@ -537,9 +666,30 @@ const failure = (cause: unknown) =>
   /conflict/.test(String((cause as { message?: string })?.message ?? cause))
     ? 'conflict'
     : 'saveFailed'
+useQueryCache(
+  () =>
+    JSON.stringify([
+      championId.value,
+      kind.value,
+      opponentId.value,
+      search.value,
+      validPatch.value,
+      reviewState.value,
+      deleted.value,
+      page.value
+    ]),
+  result,
+  () => null
+)
+useQueryCache(
+  () => JSON.stringify([historyEntry.value?.id, historyPage.value]),
+  history,
+  () => null
+)
 async function load() {
   const current = ++generation
-  if (!active.value || !championId.value) {
+  if (!active.value) return
+  if (!championId.value) {
     result.value = null
     loading.value = false
     return
@@ -600,6 +750,11 @@ function newEntry(value: NotebookContent['kind']) {
       ...blankContent(championId.value, value),
       opponentId: value === 'matchup' ? opponentId.value : null
     })
+}
+function manageEntry(entry: NotebookEntry, action: string) {
+  if (action === 'copy') copy(entry)
+  else if (action === 'history') void showHistory(entry)
+  else if (action === 'pin' || action === 'trash') void mutate(entry, action)
 }
 function edit(entry: NotebookEntry) {
   begin(entry.content, entry)
@@ -676,7 +831,6 @@ async function mutate(entry: NotebookEntry, action: ChangeNotebook['action']) {
 }
 async function loadHistory() {
   const current = ++historyGeneration
-  history.value = null
   historyError.value = ''
   if (!historyEntry.value || !active.value) return
   historyLoading.value = true
@@ -733,7 +887,6 @@ watch(
 )
 watch([championId, kind, search, opponentId, deleted, validPatch, reviewState, page], () => {
   generation++
-  result.value = null
   clearTimeout(debounce)
   if (active.value) debounce = setTimeout(load, 160)
 })
@@ -766,6 +919,18 @@ useWorkspaceState(
     page: z.number().int().positive(),
     tab: z.string().max(30)
   })
+)
+useRefreshFeedback(
+  () => error.value,
+  () => t(error.value || 'loadFailed')
+)
+useRefreshFeedback(
+  () => unavailable.value || summaryError.value,
+  () => t(unavailable.value ? 'resourcesUnavailable' : 'loadFailed')
+)
+useRefreshFeedback(
+  () => historyError.value,
+  () => t(historyError.value)
 )
 </script>
 

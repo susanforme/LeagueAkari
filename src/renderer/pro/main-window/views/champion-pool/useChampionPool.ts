@@ -11,14 +11,12 @@ import {
 import { computed, onActivated, onDeactivated, onScopeDispose, ref, shallowRef, watch } from 'vue'
 
 import { PlayerTabsRenderer } from '@main-window/shards/player-tabs'
-import { usePlayerTabsStore } from '@main-window/shards/player-tabs/store'
 
 import { ChampionPoolRenderer } from '../../../shared/shards/champion-pool'
 
 export function useChampionPool() {
   const api = useInstance(ChampionPoolRenderer)
   const playerTabs = useInstance(PlayerTabsRenderer)
-  const tabs = usePlayerTabsStore()
   const league = useLeagueClientStore()
   const sgp = useSgpStore()
   const players = shallowRef<PoolPlayer[]>([])
@@ -40,8 +38,8 @@ export function useChampionPool() {
   const sort = ref<ReturnType<typeof querySchema.parse>['sort']>('games')
   const sortDirection = ref<ReturnType<typeof querySchema.parse>['sortDirection']>('desc')
   const page = ref(1)
-  const count = ref(200)
   const active = ref(false)
+  const cache = new Map<string, { result: PoolResult; matches: PoolMatchPage | null }>()
   let generation = 0
   let lifecycle = 0
   let polling = false
@@ -74,8 +72,12 @@ export function useChampionPool() {
       : null
   )
 
+  const queryKey = computed(() =>
+    JSON.stringify([query.value, matchPage.value, matchPageSize.value])
+  )
   async function load() {
     const request = ++generation
+    const key = queryKey.value
     loading.value = false
     if (!active.value || status.value?.storage !== 'ready' || !query.value) return
     if (!query.value.success) {
@@ -83,7 +85,7 @@ export function useChampionPool() {
       loading.value = false
       return
     }
-    loading.value = true
+    loading.value = !result.value
     error.value = ''
     try {
       const current = query.value.data
@@ -101,6 +103,9 @@ export function useChampionPool() {
       if (request === generation) {
         result.value = next
         matches.value = history
+        cache.delete(key)
+        cache.set(key, { result: next, matches: history })
+        if (cache.size > 20) cache.delete(cache.keys().next().value!)
       }
     } catch {
       if (request === generation) error.value = 'loadFailed'
@@ -112,35 +117,19 @@ export function useChampionPool() {
   async function refreshPlayers() {
     const epoch = lifecycle
     const cached = await api.players()
-    const history = await playerTabs.getSearchHistory()
     if (!active.value || epoch !== lifecycle) return
-    const known: PoolPlayer[] = [
-      ...tabs.tabs.map((tab) => ({
-        serverId: tab.sgpServerId,
-        puuid: tab.puuid,
-        name: tab.summoner ? `${tab.summoner.gameName}#${tab.summoner.tagLine}` : tab.puuid,
-        updatedAt: 0
-      })),
-      ...history.map((p) => ({
-        serverId: p.sgpServerId,
-        puuid: p.puuid,
-        name: `${p.summoner.gameName}#${p.summoner.tagLine}`,
-        updatedAt: 0
-      }))
-    ]
-    const merged = new Map(cached.map((p) => [identity(p), p]))
-    known.forEach((p) => {
-      if (!merged.has(identity(p))) merged.set(identity(p), p)
-    })
-    players.value = [...merged.values()]
-    if (!players.value.some((p) => identity(p) === selected.value)) {
-      const next =
-        players.value.find(
-          (p) =>
-            p.puuid === league.summoner.me?.puuid && p.serverId === sgp.availability.sgpServerId
-        ) ?? players.value[0]
-      selected.value = next ? identity(next) : null
-    }
+    players.value = cached
+    const current =
+      league.summoner.me?.puuid && sgp.availability.sgpServerId
+        ? identity({ puuid: league.summoner.me.puuid, serverId: sgp.availability.sgpServerId })
+        : null
+    selected.value =
+      current ??
+      (cached.some((p) => identity(p) === selected.value)
+        ? selected.value
+        : cached[0]
+          ? identity(cached[0])
+          : null)
   }
 
   async function poll() {
@@ -175,28 +164,6 @@ export function useChampionPool() {
     }
   }
 
-  async function sync() {
-    if (!player.value) return
-    error.value = ''
-    try {
-      status.value = await api.startSync({
-        ...player.value,
-        count: count.value,
-        preferredSource: tabs.frontendSettings.matchHistoryUseSgpApi ? 'sgp' : 'lcu'
-      })
-      void poll()
-    } catch (cause) {
-      const message =
-        cause instanceof Error
-          ? cause.message
-          : String((cause as { message?: string })?.message ?? '')
-      error.value =
-        ['disconnected', 'differentServer', 'waitingToken', 'busy'].find((key) =>
-          message.includes(key)
-        ) ?? 'syncFailed'
-    }
-  }
-
   function reset() {
     queues.value = [420]
     position.value = null
@@ -212,8 +179,6 @@ export function useChampionPool() {
     [selected, queues, position, patch, dates, championId, sort, sortDirection],
     () => {
       generation++
-      result.value = null
-      matches.value = null
       page.value = 1
       matchPage.value = 1
     },
@@ -222,6 +187,8 @@ export function useChampionPool() {
   watch(
     selected,
     (_, previous) => {
+      result.value = null
+      matches.value = null
       if (previous) championId.value = null
     },
     { flush: 'sync' }
@@ -233,14 +200,27 @@ export function useChampionPool() {
     },
     { flush: 'sync' }
   )
-  watch([query, matchPage, matchPageSize], () => {
+  watch(queryKey, () => {
+    const previous = cache.get(queryKey.value)
+    result.value = previous?.result ?? null
+    matches.value = previous?.matches ?? null
     clearTimeout(debounce)
     generation++
     if (active.value) debounce = setTimeout(load, 160)
   })
-  watch([() => league.isConnected, () => league.summoner.me?.puuid], () => {
-    if (active.value) void refresh()
-  })
+  watch(
+    () =>
+      JSON.stringify([league.isConnected, league.summoner.me?.puuid, sgp.availability.sgpServerId]),
+    () => {
+      if (league.isConnected && league.summoner.me?.puuid && sgp.availability.sgpServerId)
+        selected.value = identity({
+          puuid: league.summoner.me.puuid,
+          serverId: sgp.availability.sgpServerId
+        })
+      if (active.value) void refresh()
+    },
+    { flush: 'sync' }
+  )
   api.onChanged(() => {
     if (active.value) void refresh()
   })
@@ -282,8 +262,6 @@ export function useChampionPool() {
     sort,
     sortDirection,
     page,
-    count,
-    sync,
     reset,
     refresh,
     load

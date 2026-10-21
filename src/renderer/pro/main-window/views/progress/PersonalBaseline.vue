@@ -3,8 +3,8 @@
     <template #header-extra
       ><NCheckbox v-model:checked="allChampions">{{ t('allChampions') }}</NCheckbox></template
     >
-    <NAlert v-if="error" type="error">{{ t('failed') }}</NAlert>
-    <NSpin :show="loading">
+
+    <NSpin :show="loading && !insights">
       <NCollapse>
         <NCollapseItem
           v-for="metric in insights?.metrics"
@@ -83,6 +83,7 @@
   </NCard>
 </template>
 <script setup lang="ts">
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
 import { ref, watch, toRef } from 'vue'
 import { usePersonalBaseline } from './usePersonalBaseline'
 import {
@@ -162,4 +163,8 @@ async function save() {
     saving.value = false
   }
 }
+useRefreshFeedback(
+  () => error.value,
+  () => t('failed')
+)
 </script>

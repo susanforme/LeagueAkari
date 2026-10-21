@@ -56,6 +56,9 @@ export class ChampionPoolRenderer {
       gameId
     })
   }
+  onResourcesChanged(callback: (event: { key: string; failed: boolean }) => void) {
+    return this._ipc.onEventVue(CHAMPION_POOL_NAMESPACE, 'resources-changed', callback)
+  }
   onChanged(callback: () => void) {
     return this._ipc.onEventVue(CHAMPION_POOL_NAMESPACE, 'cache-changed', callback)
   }

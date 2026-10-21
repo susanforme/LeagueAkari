@@ -28,6 +28,21 @@ export const contentSchema = z
       })
       .optional(),
     pinned: z.boolean(),
+    difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+    attachments: z
+      .array(
+        z
+          .string()
+          .max(2800000)
+          .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/)
+      )
+      .max(2)
+      .optional(),
+    matchupRating: z.enum(['favorable', 'even', 'difficult']).nullish(),
+    situations: z
+      .array(z.object({ title: z.string().max(120), response: z.string().max(2000) }))
+      .max(20)
+      .optional(),
     tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
     confirmedPatch: z
       .string()
@@ -45,7 +60,8 @@ export const contentSchema = z
           .object({
             action: z.enum(actions),
             entityId: entityId.nullable(),
-            label: z.string().max(120)
+            label: z.string().max(120),
+            notes: z.string().max(2000).optional()
           })
           .superRefine((step, ctx) => {
             if (['skill', 'item', 'spell'].includes(step.action) && step.entityId === null)
@@ -105,6 +121,9 @@ export const listSchema = z.object({
   buildMapId: entityId.optional(),
   buildPosition: z.string().max(20).optional(),
   reportId: z.string().uuid().optional(),
+  order: z.enum(['pinned', 'recent']).optional(),
+  updatedSince: z.number().int().nonnegative().optional(),
+  searchChampionIds: z.array(entityId).max(1000).optional(),
   deleted: z.boolean().default(false),
   page: z.number().int().min(1).max(100_000).default(1)
 })
@@ -236,3 +255,15 @@ export const buildApplySchema = z.object({
   mode: z.enum(['apply', 'new', 'overwrite']).default('apply')
 })
 export type BuildApply = z.infer<typeof buildApplySchema>
+
+export interface HandbookHome {
+  champions: (NotebookChampionSummary & {
+    positions: string[]
+    favorite: boolean
+    added?: boolean
+  })[]
+  updated: number
+  practice: { pending: number; practicing: number; mastered: number; paused?: number }
+  upcoming: import('./handbook').PracticePlan[]
+}
+export const favoriteChampionSchema = z.object({ championId: entityId, favorite: z.boolean() })

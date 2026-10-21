@@ -9,14 +9,13 @@
       <NButton
         v-if="!content.runes"
         size="small"
-        :disabled="!canEdit"
         @click="content.runes = { primaryStyleId: 0, subStyleId: 0, selectedPerkIds: [] }"
         >{{ t('configureRunes') }}</NButton
       >
       <NButton v-else size="small" @click="content.runes = null">{{ t('removeRunes') }}</NButton>
     </div>
-    <RuneV2Edit v-if="content.runes && canEdit" v-model:page="content.runes" />
-    <LoadoutSummary v-else-if="content.runes" :content="{ runes: content.runes }" />
+    <RuneEditor v-if="content.runes" v-model="content.runes" />
+
     <NAlert v-if="failed" type="error">{{ t('captureFailed') }}</NAlert>
     <div class="flex flex-wrap items-center gap-2">
       <NCheckbox
@@ -47,22 +46,20 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, onScopeDispose, ref } from 'vue'
+import { onScopeDispose, ref } from 'vue'
 import { NButton, NCheckbox, NAlert } from 'naive-ui'
 import { useTranslation } from 'i18next-vue'
 import { useInstance } from '@renderer-shared/shards'
 import { useLeagueClientStore } from '@renderer-shared/shards/league-client/store'
-import RuneV2Edit from '@main-window/views/automation/components/auto-champ-config/RuneV2Edit.vue'
+import RuneEditor from './workspace/RuneEditor.vue'
 import type { NotebookContent, NotebookCatalog } from '@shared/pro/notebook'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
 import EntitySelect from './EntitySelect.vue'
 import LoadoutCapture from './LoadoutCapture.vue'
-import LoadoutSummary from './LoadoutSummary.vue'
 const props = defineProps<{ content: NotebookContent; catalog: NotebookCatalog }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.loadout' })
 const api = useInstance(NotebookRenderer),
   league = useLeagueClientStore()
-const canEdit = computed(() => league.gameData.perkstyles.schemaVersion === 2)
 const capturing = ref(false),
   failed = ref(false)
 let disposed = false

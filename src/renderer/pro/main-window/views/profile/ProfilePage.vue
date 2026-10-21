@@ -5,18 +5,10 @@
     >
       <NIcon :component="Person24Regular" size="22" />
       <span class="text-base font-bold">{{ t('title') }}</span>
-      <NButton
-        size="small"
-        :loading="capturing"
-        :disabled="!status?.current || capturing"
-        @click="capture"
-        >{{ t('capture') }}</NButton
-      >
-      <NButton size="small" @click="refresh">{{ t('refresh') }}</NButton>
+      <RefreshButton :disabled="loading" @click="refresh" />
     </div>
     <NScrollbar class="min-h-0 flex-1">
       <div class="flex flex-col gap-4 p-6">
-        <NAlert v-if="error || status?.error" type="warning">{{ t('failed') }}</NAlert>
         <section class="profile-identity profile-panel">
           <img :src="AkariLogo" class="identity-watermark" alt="" />
           <div class="identity-avatar">
@@ -40,19 +32,8 @@
                 · {{ t('level', { level: latest.summoner.summonerLevel }) }}</template
               ></span
             >
-            <span class="profile-muted text-xs">{{
-              latest
-                ? t('observedAt', { time: new Date(latest.observedAt).toLocaleString() })
-                : t('empty')
-            }}</span>
           </div>
           <div class="identity-select">
-            <NSelect
-              v-model:value="selected"
-              :options="playerOptions"
-              :placeholder="t('selectPlayer')"
-              :aria-label="t('selectPlayer')"
-            />
             <span
               v-if="status?.current && selected === key(status.current)"
               class="connected-status"
@@ -87,96 +68,37 @@
         />
         <NEmpty v-if="!selectedPlayer && !error" class="py-12" :description="t('empty')" />
         <section v-if="selectedPlayer" ref="historySection" class="profile-panel history-panel">
-          <NCollapse v-model:expanded-names="expandedSections">
-            <NCollapseItem name="history" :title="t('history')">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <NRadioGroup v-model:value="queue" size="small">
-                  <NRadioButton
-                    v-for="option in queueOptions"
-                    :key="option.value"
-                    :value="option.value"
-                    >{{ option.label }}</NRadioButton
-                  >
-                </NRadioGroup>
-                <NSelect
-                  :value="
-                    availableSeasons.length
-                      ? seasonFilter === null
-                        ? 'unknown'
-                        : seasonFilter
-                      : undefined
-                  "
-                  :disabled="!availableSeasons.length"
-                  :options="seasonOptions"
-                  :aria-label="t('season')"
-                  :placeholder="t('season')"
-                  class="w-48!"
-                  @update:value="changeSeason"
-                />
-              </div>
-              <NSpin :show="loading">
-                <RankHistoryChart
-                  v-if="trend?.points.length"
-                  :trend="trend"
-                  :selected="selectedPoint"
-                  :rank-label="rankLabel"
-                  :change-label="changeLabel"
-                  @select="selectPoint"
-                />
-                <NEmpty v-else-if="!loading" :description="t('noSeasonRecords')" />
-              </NSpin>
-              <div class="flex justify-end">
-                <NPagination
-                  v-model:page="page"
-                  :page-size="30"
-                  :item-count="trend?.points.length ?? 0"
-                  :disabled="loading"
-                />
-              </div>
-              <NSpin :show="loading">
-                <div class="overflow-x-auto">
-                  <NTable size="small" :single-line="false">
-                    <thead>
-                      <tr>
-                        <th>{{ t('time') }}</th>
-                        <th>{{ t('season') }}</th>
-                        <th>{{ t('rank') }}</th>
-                        <th>LP</th>
-                        <th>{{ t('change') }}</th>
-                        <th>{{ t('winsLosses') }}</th>
-                        <th>{{ t('reason') }}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="snapshot in history" :key="snapshot.id">
-                        <td>
-                          <NButton
-                            text
-                            size="small"
-                            :type="selectedPoint === snapshot.id ? 'primary' : 'default'"
-                            @click="selectPoint(snapshot.id)"
-                            >{{ new Date(snapshot.observedAt).toLocaleString() }}</NButton
-                          >
-                        </td>
-                        <td>{{ trend?.season ?? t('unknownSeason') }}</td>
-                        <td>
-                          {{ rankLabel(snapshot) }}
-                          <NTag v-if="snapshot.isProvisional" size="small">{{
-                            t('provisional')
-                          }}</NTag>
-                        </td>
-                        <td>{{ snapshot.leaguePoints }}</td>
-                        <td>{{ changeLabel(snapshot) }}</td>
-                        <td>{{ snapshot.wins }} / {{ snapshot.losses }}</td>
-                        <td>{{ t(`reasons.${snapshot.reason}`) }} · LCU</td>
-                      </tr>
-                    </tbody>
-                  </NTable>
-                </div>
-                <NEmpty v-if="!players.length && !loading" class="mt-5" :description="t('empty')" />
-              </NSpin>
-            </NCollapseItem>
-          </NCollapse>
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="profile-section-title">{{ t('history') }}</h2>
+            <div class="flex flex-wrap items-center gap-3">
+              <NRadioGroup v-model:value="queue" size="small">
+                <NRadioButton
+                  v-for="option in queueOptions"
+                  :key="option.value"
+                  :value="option.value"
+                  >{{ option.label }}</NRadioButton
+                >
+              </NRadioGroup>
+              <NSelect
+                :value="seasonFilter ?? 'unknown'"
+                :options="seasonOptions"
+                :aria-label="t('season')"
+                class="w-32!"
+                size="small"
+                @update:value="changeSeason"
+              />
+            </div>
+          </div>
+          <NSpin :show="loading && !trend">
+            <RankHistoryChart
+              v-if="trend?.points.length"
+              :trend="trend"
+              :selected="selectedPoint"
+              :rank-label="rankLabel"
+              @select="selectPoint"
+            />
+            <NEmpty v-else-if="!loading" :description="t('noSeasonRecords')" />
+          </NSpin>
         </section>
         <section v-if="selectedPlayer" class="profile-panel history-panel">
           <SessionAndPartners :player="selectedPlayer" :refresh-token="refreshToken" />
@@ -186,6 +108,11 @@
   </div>
 </template>
 <script setup lang="ts">
+import { useQueryCache } from '../../../shared/composables/query-cache'
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
+import RefreshButton from '../../../shared/components/RefreshButton.vue'
+import { useLeagueClientStore } from '@renderer-shared/shards/league-client/store'
+import { useSgpStore } from '@renderer-shared/shards/sgp/store'
 import LcuImage from '@renderer-shared/components/LcuImage.vue'
 import AkariLogo from '@renderer-shared/assets/logo/logo.svg'
 import ProfileRanks from './ProfileRanks.vue'
@@ -201,20 +128,14 @@ import {
 import { Person24Regular } from '@vicons/fluent'
 import { useTranslation } from 'i18next-vue'
 import {
-  NAlert,
-  NButton,
-  NCollapse,
-  NCollapseItem,
+  useNotification,
   NEmpty,
   NIcon,
-  NPagination,
   NRadioGroup,
   NRadioButton,
   NScrollbar,
   NSelect,
-  NSpin,
-  NTable,
-  NTag
+  NSpin
 } from 'naive-ui'
 import { computed, nextTick, onActivated, onDeactivated, ref, shallowRef, watch } from 'vue'
 import { ProfileRenderer } from '../../../shared/shards/profile'
@@ -226,10 +147,12 @@ import ProfileActivity from './ProfileActivity.vue'
 import SessionAndPartners from './SessionAndPartners.vue'
 import { z } from 'zod'
 import { useWorkspaceState } from '../../../shared/composables/useWorkspaceState'
-import { previousRankPoint } from './rank-history'
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.profile' })
 const { t: commonT } = useTranslation('common')
 useChampionPoolResources()
+const notification = useNotification()
+const league = useLeagueClientStore(),
+  sgp = useSgpStore()
 const api = useInstance(ProfileRenderer)
 const poolApi = useInstance(ChampionPoolRenderer)
 const cachedPlayers = shallowRef<PoolPlayer[]>([])
@@ -237,7 +160,6 @@ const players = shallowRef<ProfileSnapshot[]>([])
 const status = shallowRef<ProfileStatus | null>(null)
 const selected = ref<string | null>(null)
 const queue = ref<(typeof rankedQueues)[number]>('RANKED_SOLO_5x5')
-const page = ref(1)
 const trend = shallowRef<ProfileTrend | null>(null)
 const seasonFilter = ref<number | null | undefined>(undefined)
 const availableSeasons = ref<(number | null)[]>([])
@@ -245,22 +167,14 @@ const selectedPoint = ref<string | null>(null)
 const refreshToken = ref(0)
 const performance = ref<InstanceType<typeof ProfilePerformance>>()
 const historySection = ref<HTMLElement>()
-const expandedSections = ref<string[]>([])
 async function openRankHistory(value: (typeof rankedQueues)[number]) {
   queue.value = value
-  expandedSections.value = ['history']
   await nextTick()
   historySection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
-function filterPeriod(from: number, to: number) {
-  performance.value?.filterPeriod(from, to)
+function filterPeriod(from: number, to: number, queue: number) {
+  performance.value?.filterPeriod(from, to, queue)
 }
-const history = computed(() =>
-  [...(trend.value?.points ?? [])].reverse().slice((page.value - 1) * 30, page.value * 30)
-)
-const pointIndexes = computed(
-  () => new Map(trend.value?.points.map((point, index) => [point.id, index]) ?? [])
-)
 const seasonOptions = computed(() =>
   availableSeasons.value.map((season) => ({
     value: season ?? 'unknown',
@@ -268,7 +182,6 @@ const seasonOptions = computed(() =>
   }))
 )
 const loading = ref(false)
-const capturing = ref(false)
 const error = ref(false)
 const key = (player: { serverId: string; puuid: string }) =>
   JSON.stringify([player.serverId, player.puuid])
@@ -280,16 +193,6 @@ const latest = computed(() => players.value.find((p) => key(p) === selected.valu
 const selectedPlayer = computed(
   () => latest.value ?? cachedPlayers.value.find((p) => key(p) === selected.value)
 )
-const playerOptions = computed(() => [
-  ...new Map([
-    ...cachedPlayers.value.map(
-      (p) => [key(p), { label: `${p.name} · ${p.serverId}`, value: key(p) }] as const
-    ),
-    ...players.value.map(
-      (p) => [key(p), { label: `${displayName(p)} · ${p.serverId}`, value: key(p) }] as const
-    )
-  ]).values()
-])
 const queueOptions = computed(() =>
   rankedQueues.map((value) => ({
     value,
@@ -304,30 +207,11 @@ function rankLabel(rank: Pick<RankPoint, 'tier' | 'division'>) {
       : rank.division
   return `${commonT(`tiers.${rank.tier}`, { defaultValue: rank.tier })} ${division}`.trim()
 }
-function changeLabel(point: RankPoint) {
-  const current = trend.value
-  if (!current) return '—'
-  const previous = previousRankPoint(
-    current.points,
-    pointIndexes.value.get(point.id) ?? -1,
-    current.season
-  )
-  if (!previous) return '—'
-  const delta = point.leaguePoints - previous.leaguePoints
-  const change = `${previous.leaguePoints} → ${point.leaguePoints} LP (${delta > 0 ? '+' : ''}${delta})`
-  return rankLabel(previous) === rankLabel(point)
-    ? change
-    : `${rankLabel(previous)} → ${rankLabel(point)} · ${change}`
-}
 function selectPoint(id: string) {
   selectedPoint.value = id
-  const index = pointIndexes.value.get(id)
-  if (index !== undefined)
-    page.value = Math.floor(((trend.value?.points.length ?? 0) - 1 - index) / 30) + 1
 }
 function changeSeason(value: number | string) {
   seasonFilter.value = value === 'unknown' ? null : Number(value)
-  page.value = 1
   selectedPoint.value = null
   void loadHistory()
 }
@@ -335,6 +219,11 @@ let generation = 0
 let reloadGeneration = 0
 let active = false
 let timer: ReturnType<typeof setInterval> | null = null
+useQueryCache(
+  () => JSON.stringify([selected.value, queue.value, seasonFilter.value]),
+  trend,
+  () => null
+)
 async function loadHistory() {
   if (!active) return
   const current = ++generation
@@ -344,7 +233,7 @@ async function loadHistory() {
     loading.value = false
     return
   }
-  loading.value = true
+  loading.value = !trend.value
   try {
     const next = await api.trend({
       serverId: player.serverId,
@@ -353,16 +242,15 @@ async function loadHistory() {
       season: seasonFilter.value
     })
     if (current === generation) {
-      trend.value = next
       availableSeasons.value = next.seasons
       seasonFilter.value = next.seasons.length ? next.season : undefined
+      trend.value = next
       if (!next.points.some((point) => point.id === selectedPoint.value))
         selectedPoint.value = next.points.at(-1)?.id ?? null
-      page.value = Math.min(page.value, Math.max(1, Math.ceil(next.points.length / 30)))
       error.value = false
     }
   } catch {
-    if (current === generation) error.value = true
+    if (current === generation) notification.warning({ title: t('failed'), duration: 4000 })
   } finally {
     if (current === generation) loading.value = false
   }
@@ -388,46 +276,40 @@ async function reload(force = false) {
     players.value = nextPlayers
     cachedPlayers.value = cached
     error.value = false
-    if (!selected.value)
-      selected.value =
-        nextStatus.current &&
-        [...nextPlayers, ...cached].some((p) => key(p) === key(nextStatus.current!))
-          ? key(nextStatus.current)
-          : nextPlayers[0]
-            ? key(nextPlayers[0])
-            : cached[0]
-              ? key(cached[0])
-              : null
+    if (nextStatus.current || !selected.value)
+      selected.value = nextStatus.current
+        ? key(nextStatus.current)
+        : nextPlayers[0]
+          ? key(nextPlayers[0])
+          : cached[0]
+            ? key(cached[0])
+            : null
     if (changed) refreshToken.value++
     if (force || changed || !trend.value) await loadHistory()
   } catch {
-    if (current === reloadGeneration) error.value = true
-  }
-}
-async function capture() {
-  capturing.value = true
-  try {
-    const next = await api.capture()
-    if (active) {
-      selected.value = key(next)
-      page.value = 1
-      await reload()
-    }
-  } catch {
-    if (active) error.value = true
-  } finally {
-    capturing.value = false
+    if (current === reloadGeneration) notification.warning({ title: t('failed'), duration: 4000 })
   }
 }
 watch(
   [selected, queue],
   () => {
-    trend.value = null
-    page.value = 1
     seasonFilter.value = undefined
     availableSeasons.value = []
     selectedPoint.value = null
     void loadHistory()
+  },
+  { flush: 'sync' }
+)
+watch(
+  () =>
+    JSON.stringify([league.isConnected, league.summoner.me?.puuid, sgp.availability.sgpServerId]),
+  () => {
+    if (league.isConnected && league.summoner.me?.puuid && sgp.availability.sgpServerId)
+      selected.value = key({
+        puuid: league.summoner.me.puuid,
+        serverId: sgp.availability.sgpServerId
+      })
+    void reload()
   },
   { flush: 'sync' }
 )
@@ -445,14 +327,17 @@ onDeactivated(() => {
 })
 useWorkspaceState(
   'pro-profile',
-  { selected, queue, page, seasonFilter, selectedPoint },
+  { selected, queue, seasonFilter, selectedPoint },
   z.object({
     selected: z.string().nullable(),
     queue: z.enum(rankedQueues),
-    page: z.number().int().positive(),
     seasonFilter: z.number().int().nullable().optional(),
     selectedPoint: z.string().nullable()
   })
+)
+useRefreshFeedback(
+  () => status.value?.error,
+  () => t('failed')
 )
 </script>
 

@@ -9,7 +9,10 @@ import type { AkariApiMainContext } from './context'
 export class AkariApiReleaseLoader {
   private _updatePromise: Promise<AkariRelease> | null = null
 
-  constructor(private readonly _context: AkariApiMainContext) {}
+  constructor(
+    private readonly _context: AkariApiMainContext,
+    private readonly _fetchRelease?: () => Promise<AkariRelease>
+  ) {}
 
   updateLatestRelease(language: AkariApiLanguage) {
     if (this._updatePromise) {
@@ -40,6 +43,7 @@ export class AkariApiReleaseLoader {
   }
 
   private async _fetchLatestRelease(language: AkariApiLanguage): Promise<AkariRelease> {
+    if (this._fetchRelease) return this._fetchRelease()
     const response = await this._context.api.getLatestRelease(language)
     return AkariReleaseSchema.parse(response.data)
   }

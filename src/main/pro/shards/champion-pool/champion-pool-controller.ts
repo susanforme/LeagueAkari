@@ -334,7 +334,8 @@ export class ChampionPoolController {
       })
       matches.forEach(({ projection }) => seen.add(projection.gameId))
       this._sync.processed = offset + summaries.length
-      if (summaries.length < count) break
+      if (summaries.length < count || (incremental && summaries.some((s) => cached.has(s.gameId))))
+        break
     }
     this._retry = null
   }

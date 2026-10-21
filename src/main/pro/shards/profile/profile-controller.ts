@@ -3,6 +3,7 @@ import type { AkariLogger } from '@main/shards/logger-factory'
 import type { SgpMain } from '@main/shards/sgp'
 import { MAX_CACHED_ANALYSIS, type PlayerIdentity, type PoolMatch } from '@shared/pro/champion-pool'
 import {
+  type ProfileActivityQuery,
   type ProfileMatches,
   type ProfileMatchesQuery,
   type ProfileSnapshot,
@@ -19,6 +20,7 @@ import { activityStart, summarizeActivity } from './activity'
 
 export class ProfileController {
   private readonly _disposers: (() => void)[] = []
+  private _scheduledReason: ProfileSnapshot['reason'] | null = null
   private _timer: ReturnType<typeof setTimeout> | null = null
   private _abort = new AbortController()
   private _pending = new Set<Promise<ProfileSnapshot>>()
@@ -50,6 +52,7 @@ export class ProfileController {
           this._abort = new AbortController()
           if (this._timer) clearTimeout(this._timer)
           this._timer = null
+          this._scheduledReason = null
           this._error = false
           if (this._identity()) this._schedule('connected')
         },
@@ -65,13 +68,23 @@ export class ProfileController {
       })
     )
   }
-  private _schedule(reason: ProfileSnapshot['reason']) {
+  private _schedule(reason: ProfileSnapshot['reason'], attempt = 0) {
     if (this._disposed || !this._identity()) return
     if (this._timer) clearTimeout(this._timer)
-    this._timer = setTimeout(() => {
-      this._timer = null
-      void this.capture(reason).catch(() => {})
-    }, 1500)
+    this._scheduledReason = this._scheduledReason === 'endGame' ? 'endGame' : reason
+    const epoch = this._epoch
+    this._timer = setTimeout(
+      () => {
+        this._timer = null
+        const scheduled = this._scheduledReason ?? reason
+        this._scheduledReason = null
+        void this.capture(scheduled).catch(() => {
+          if (epoch === this._epoch && !this._timer && attempt < 2)
+            this._schedule(scheduled, attempt + 1)
+        })
+      },
+      attempt ? 5000 : 1500
+    )
   }
   capture(reason: ProfileSnapshot['reason'] = 'manual') {
     const identity = this._identity()
@@ -201,15 +214,22 @@ export class ProfileController {
       )
     }
   }
-  async activity(player: PlayerIdentity) {
+  async activity(player: PlayerIdentity & Partial<Pick<ProfileActivityQuery, 'queueIds'>>) {
     const now = Date.now()
     const rows: { projection: string; duration: number | null }[] = await this._database().query(
       `SELECT projection, CASE json_extract(summary, '$.source')
          WHEN 'sgp' THEN json_extract(summary, '$.data.json.gameDuration')
          ELSE json_extract(summary, '$.data.gameDuration') END AS duration
-       FROM PoolMatches WHERE serverId = ? AND puuid = ? AND startedAt >= ? AND startedAt < ?
+       FROM PoolMatches WHERE serverId = ? AND puuid = ? AND startedAt >= ? AND startedAt < ? AND json_extract(projection, '$.queueId') IN (${(player.queueIds ?? [420, 440]).map(() => '?').join(',')})
        ORDER BY startedAt DESC, gameId DESC LIMIT ?`,
-      [player.serverId, player.puuid, activityStart(now), now, MAX_CACHED_ANALYSIS + 1]
+      [
+        player.serverId,
+        player.puuid,
+        activityStart(now),
+        now,
+        ...(player.queueIds ?? [420, 440]),
+        MAX_CACHED_ANALYSIS + 1
+      ]
     )
     return summarizeActivity(
       rows.slice(0, MAX_CACHED_ANALYSIS).map((row) => ({
@@ -223,7 +243,12 @@ export class ProfileController {
   async matches(query: ProfileMatchesQuery): Promise<ProfileMatches> {
     const database = this._database()
     const parameters: (string | number)[] = [query.serverId, query.puuid]
-    const conditions = ['serverId = ?', 'puuid = ?']
+    const conditions = [
+      'serverId = ?',
+      'puuid = ?',
+      `json_extract(projection, '$.queueId') IN (${query.queueIds.map(() => '?').join(',')})`
+    ]
+    parameters.push(...query.queueIds)
     if (query.championId !== null) {
       conditions.push("json_extract(projection, '$.championId') = ?")
       parameters.push(query.championId)

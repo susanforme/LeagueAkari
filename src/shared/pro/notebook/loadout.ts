@@ -61,7 +61,13 @@ export function selectedLoadoutChampion(session: ChampSelectSession | null) {
   return { championId: self.championId, position: (self.assignedPosition ?? '').toUpperCase() }
 }
 
-export function validRunes(runes: NotebookRunes, styles: Record<number, Style>) {
+export function validRunes(
+  runes: NotebookRunes,
+  styles: Record<
+    number,
+    Pick<Style, 'allowedSubStyles'> & { slots: Pick<Style['slots'][number], 'type' | 'perks'>[] }
+  >
+) {
   const primary = styles[runes.primaryStyleId],
     secondary = styles[runes.subStyleId]
   if (!primary?.allowedSubStyles.includes(runes.subStyleId) || !secondary) return false

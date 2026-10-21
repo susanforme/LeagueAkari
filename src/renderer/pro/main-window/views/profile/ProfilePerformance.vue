@@ -4,33 +4,21 @@
       <div class="panel-heading">
         <h2 class="profile-section-title">{{ t('dashboard.recentMatches') }}</h2>
         <div class="flex items-center gap-3">
-          <NButton
-            size="tiny"
-            :loading="syncStatus?.sync.running"
-            :disabled="syncStatus?.storage !== 'ready'"
-            @click="sync"
-            >{{ t('dashboard.sync') }}</NButton
-          >
           <NButton text size="small" @click="openMatches()"
             >{{ t('dashboard.viewAll') }} <NIcon :component="ArrowRight20Regular" class="ml-1"
           /></NButton>
         </div>
       </div>
-      <NAlert v-if="failed || syncFailed" type="warning" class="mx-5 mb-3"
-        >{{ t('dashboard.loadFailed') }}
-        <NButton text @click="load">{{ t('refresh') }}</NButton></NAlert
-      >
-      <NAlert v-if="syncStatus?.sync.error" type="warning" class="mx-5 mb-3">{{
-        poolT(syncStatus.sync.error)
-      }}</NAlert>
-      <NSpin :show="loading">
+
+      <NSpin :show="loading && !recent">
         <ProfileMatchRows
           v-if="recent?.items.length"
           :games="recent.items"
           :puuid="player.puuid"
+          :server-id="player.serverId"
           @review="review"
         />
-        <NEmpty v-else-if="!loading && !failed" class="py-12" :description="t('activity.empty')" />
+        <NEmpty v-else-if="recent" class="py-12" :description="t('activity.empty')" />
       </NSpin>
     </section>
     <section class="profile-panel">
@@ -50,14 +38,19 @@
         ><span>{{ t('activity.winRate') }}</span
         ><span>KDA</span>
       </div>
-      <NSpin :show="loading">
+      <NSpin :show="loading && !champions">
         <NScrollbar :style="allChampions ? { maxHeight: '320px' } : undefined">
           <NButton
             v-for="champion in champions?.items"
             :key="champion.championId ?? 0"
             text
             class="champion-row"
-            @click="openMatches(champion.championId, monthStart(), Date.now())"
+            @click="
+              router.push({
+                name: CHAMPION_POOL_ROUTE,
+                query: { champion: champion.championId, queues: '420,440' }
+              })
+            "
           >
             <div class="champion-columns">
               <div class="champion-name">
@@ -90,7 +83,7 @@
           </NButton>
         </NScrollbar>
         <NEmpty
-          v-if="!loading && !failed && !champions?.items.length"
+          v-if="champions && !champions.items.length"
           class="py-12"
           :description="t('activity.empty')"
         />
@@ -116,13 +109,18 @@
     style="width: min(1000px, 94vw)"
     :style="modalTheme"
   >
-    <NAlert v-if="matchesFailed" type="warning" class="mb-3"
-      >{{ t('dashboard.loadFailed') }}
-      <NButton text @click="loadMatches">{{ t('refresh') }}</NButton></NAlert
-    >
-    <NSpin :show="matchesLoading">
+    <NRadioGroup v-model:value="matchQueue" class="mb-3" size="small">
+      <NRadioButton :value="0">{{ t('rankedAll') }}</NRadioButton>
+      <NRadioButton :value="420">{{ commonT('queueTypes.RANKED_SOLO_5x5') }}</NRadioButton>
+      <NRadioButton :value="440">{{ commonT('queueTypes.RANKED_FLEX_SR') }}</NRadioButton>
+    </NRadioGroup>
+    <NSpin :show="matchesLoading && !matches">
       <NScrollbar style="max-height: 60vh"
-        ><ProfileMatchRows :games="matches?.items ?? []" :puuid="player.puuid" @review="review"
+        ><ProfileMatchRows
+          :games="matches?.items ?? []"
+          :puuid="player.puuid"
+          :server-id="player.serverId"
+          @review="review"
       /></NScrollbar>
       <NEmpty
         v-if="!matchesLoading && !matchesFailed && !matches?.items.length"
@@ -140,6 +138,9 @@
   </NModal>
 </template>
 <script setup lang="ts">
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
 import {
   computed,
   onActivated,
@@ -153,7 +154,6 @@ import {
 import { useRouter } from 'vue-router'
 import { useTranslation } from 'i18next-vue'
 import {
-  NAlert,
   NButton,
   NEmpty,
   NIcon,
@@ -162,14 +162,16 @@ import {
   NProgress,
   NScrollbar,
   NSpin,
+  NRadioGroup,
+  NRadioButton,
   useThemeVars
 } from 'naive-ui'
 import { ArrowRight20Regular } from '@vicons/fluent'
 import { useInstance } from '@renderer-shared/shards'
-import { useAppCommonStore } from '@renderer-shared/shards/app-common/store'
 import { useGameResourceProvider } from '@renderer-shared/providers/game-resource'
 import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
 import {
+  CHAMPION_POOL_ROUTE,
   querySchema,
   type PlayerIdentity,
   type PoolResult,
@@ -183,8 +185,8 @@ import ProfileMatchRows from './ProfileMatchRows.vue'
 
 const props = defineProps<{ player: PlayerIdentity; playerName: string; refreshToken: number }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.profile' })
-const { t: poolT } = useTranslation(undefined, { keyPrefix: 'pro.championPool' })
-const app = useAppCommonStore()
+const { t: commonT } = useTranslation('common')
+const matchQueue = ref(0)
 const api = useInstance(ProfileRenderer),
   pool = useInstance(ChampionPoolRenderer)
 const resources = useGameResourceProvider(),
@@ -234,6 +236,34 @@ function monthStart() {
   date.setDate(date.getDate() - 29)
   return date.getTime()
 }
+useQueryCache(
+  () => JSON.stringify([props.player.serverId, props.player.puuid]),
+  recent,
+  () => null
+)
+useQueryCache(
+  () =>
+    JSON.stringify([
+      props.player.serverId,
+      props.player.puuid,
+      allChampions.value,
+      championPage.value
+    ]),
+  champions,
+  () => null
+)
+useQueryCache(
+  () =>
+    JSON.stringify([
+      props.player.serverId,
+      props.player.puuid,
+      filter.value,
+      matchQueue.value,
+      page.value
+    ]),
+  matches,
+  () => null
+)
 async function load() {
   if (!active) return
   const current = ++generation
@@ -245,7 +275,7 @@ async function load() {
       pool.query(
         querySchema.parse({
           ...props.player,
-          queueIds: [],
+          queueIds: [420, 440],
           from: monthStart(),
           to: Date.now(),
           pageSize: allChampions.value ? 20 : 5,
@@ -265,20 +295,6 @@ async function load() {
     if (current === generation) loading.value = false
   }
 }
-async function sync() {
-  syncFailed.value = false
-  try {
-    syncStatus.value = await pool.startSync({
-      serverId: props.player.serverId,
-      puuid: props.player.puuid,
-      name: props.playerName,
-      count: 200,
-      preferredSource: app.settings.preferredLolSource
-    })
-  } catch {
-    syncFailed.value = true
-  }
-}
 function openMatches(
   championId: number | null = null,
   from: number | null = null,
@@ -287,10 +303,10 @@ function openMatches(
   filter.value = { championId, from, to }
   page.value = 1
   showMatches.value = true
-  matches.value = null
   void loadMatches()
 }
-function filterPeriod(from: number, to: number) {
+function filterPeriod(from: number, to: number, queue = 0) {
+  matchQueue.value = queue
   openMatches(null, from, to)
 }
 defineExpose({ filterPeriod })
@@ -304,6 +320,7 @@ async function loadMatches() {
       profileMatchesSchema.parse({
         ...props.player,
         ...filter.value,
+        queueIds: matchQueue.value ? [matchQueue.value] : [420, 440],
         page: page.value,
         pageSize: 20
       })
@@ -328,17 +345,16 @@ function toggleChampions() {
 }
 watch([allChampions, championPage], load)
 watch(page, loadMatches)
-watch(
-  () => [props.player.serverId, props.player.puuid],
-  () => {
-    recent.value = null
-    champions.value = null
-    championPage.value = 1
-    showMatches.value = false
-    matchGeneration++
-    void load()
-  }
-)
+watch(matchQueue, () => {
+  page.value = 1
+  void loadMatches()
+})
+watch([() => props.player.serverId, () => props.player.puuid], () => {
+  championPage.value = 1
+  showMatches.value = false
+  matchGeneration++
+  void load()
+})
 watch(() => props.refreshToken, load)
 pool.onChanged(() => {
   if (active) {
@@ -362,6 +378,10 @@ onMounted(activate)
 onActivated(activate)
 onDeactivated(deactivate)
 onScopeDispose(deactivate)
+useRefreshFeedback(
+  () => failed.value || matchesFailed.value || syncFailed.value || syncStatus.value?.sync.error,
+  () => t('dashboard.loadFailed')
+)
 </script>
 <style scoped>
 .performance-grid {

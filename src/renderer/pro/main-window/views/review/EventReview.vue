@@ -188,6 +188,8 @@
   </div>
 </template>
 <script setup lang="ts">
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
 import { useGameResourceProvider } from '@renderer-shared/providers/game-resource'
 import { useInstance } from '@renderer-shared/shards'
 import { NOTEBOOK_ROUTE, blankContent, listSchema, type NotebookPage } from '@shared/pro/notebook'
@@ -335,6 +337,11 @@ function delta(key: keyof Omit<ReviewPoint, 'timestamp'>) {
   const after = window.value.after?.[key]
   return before == null || after == null ? '—' : after - before
 }
+useQueryCache(
+  () => JSON.stringify([props.report.id, page.value]),
+  notes,
+  () => null
+)
 async function loadNotes() {
   const current = ++generation
   try {

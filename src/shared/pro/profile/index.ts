@@ -9,6 +9,11 @@ export const PROFILE_NAMESPACE = 'pro-profile-main'
 export const PROFILE_ROUTE = 'pro-profile'
 export const profileMatchesSchema = playerSchema
   .extend({
+    queueIds: z
+      .array(z.union([z.literal(420), z.literal(440)]))
+      .min(1)
+      .max(2)
+      .default([420, 440]),
     championId: z.number().int().positive().nullable().default(null),
     from: z.number().int().nonnegative().nullable().default(null),
     to: z.number().int().nonnegative().nullable().default(null),
@@ -21,6 +26,14 @@ export interface ProfileMatches {
   items: LcuOrSgpGameSummary[]
   total: number
 }
+export const profileActivitySchema = playerSchema.extend({
+  queueIds: z
+    .array(z.union([z.literal(420), z.literal(440)]))
+    .min(1)
+    .max(2)
+    .default([420, 440])
+})
+export type ProfileActivityQuery = z.infer<typeof profileActivitySchema>
 export const profileHistorySchema = playerSchema.extend({
   page: z.number().int().min(1).max(100_000).default(1)
 })

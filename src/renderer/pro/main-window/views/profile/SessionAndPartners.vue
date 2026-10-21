@@ -1,7 +1,4 @@
 <template>
-  <NAlert v-if="error" type="warning"
-    >{{ t('failed') }} <NButton text @click="load">{{ t('retry') }}</NButton></NAlert
-  >
   <NCard v-if="data?.session" size="small">
     <template #header>{{ t('session') }}</template>
     <template #header-extra><ShareCard :title="t('session')" :lines="sessionLines" /></template>
@@ -19,47 +16,63 @@
       >
     </div>
   </NCard>
-  <NCollapse @update:expanded-names="load">
+  <NCollapse :default-expanded-names="['partners']">
     <NCollapseItem :title="t('partners')" name="partners">
       <NAlert v-if="data?.truncated" type="info">{{
         t('sampleLimit', { count: data.scanned })
       }}</NAlert>
       <NEmpty v-if="data && !data.partners.length" :description="t('noPartners')" />
-      <div class="flex flex-col gap-3">
-        <NCard v-for="partner in data?.partners" :key="partner.puuid" size="small">
+      <div class="partner-grid">
+        <section v-for="partner in data?.partners" :key="partner.puuid" class="partner-card">
           <div class="flex items-center justify-between gap-3">
-            <NButton text @click="openPartner(partner)">{{
+            <NButton text class="font-bold" @click="openPartner(partner)">{{
               privacy ? t('player') : partner.name || t('player')
             }}</NButton>
-            <span
-              >{{ t('sharedGames', { count: partner.games }) }} ·
-              {{
-                partner.wins + partner.losses
-                  ? Math.round((partner.wins / (partner.wins + partner.losses)) * 100) + '%'
-                  : '—'
-              }}</span
+            <NButton size="tiny" quaternary @click="openGames(partner)">{{
+              t('viewShared')
+            }}</NButton>
+          </div>
+          <div class="partner-score">
+            <strong>{{
+              partner.wins + partner.losses
+                ? Math.round((partner.wins / (partner.wins + partner.losses)) * 100) + '%'
+                : '—'
+            }}</strong>
+            <div>
+              <span>{{ t('sharedGames', { count: partner.games }) }}</span>
+              <div class="text-xs opacity-60">
+                {{ profileT('activity.results', { wins: partner.wins, losses: partner.losses }) }}
+              </div>
+            </div>
+          </div>
+          <NProgress
+            type="line"
+            :percentage="
+              partner.wins + partner.losses
+                ? (partner.wins / (partner.wins + partner.losses)) * 100
+                : 0
+            "
+            :show-indicator="false"
+            :height="5"
+          />
+          <div
+            v-for="combo in partner.combinations.slice(0, 3)"
+            :key="`${combo.own}:${combo.partner}`"
+            class="partner-combo"
+          >
+            <ChampionIcon :champion-id="combo.own" class="size-7! rounded" /><span>+</span
+            ><ChampionIcon :champion-id="combo.partner" class="size-7! rounded" />
+            <span class="flex-1"
+              >{{ resources.champions.name(combo.own) }} +
+              {{ resources.champions.name(combo.partner) }}</span
             >
+            <span class="opacity-60">{{ combo.games }}</span>
           </div>
-          <div class="my-2 text-xs opacity-70">
-            {{
-              partner.combinations
-                .slice(0, 3)
-                .map(
-                  (c) =>
-                    `${resources.champions.name(c.own)} + ${resources.champions.name(c.partner)} (${c.games})`
-                )
-                .join(' · ')
-            }}
-          </div>
-          <NButton size="tiny" @click="openGames(partner)">{{ t('viewShared') }}</NButton>
-        </NCard>
+        </section>
       </div>
     </NCollapseItem>
   </NCollapse>
   <NModal v-model:show="show" preset="card" :title="t('viewShared')" class="w-[960px]!">
-    <NAlert v-if="gamesError" type="warning"
-      >{{ t('failed') }} <NButton text @click="loadGames">{{ t('retry') }}</NButton></NAlert
-    >
     <NScrollbar style="max-height: 65vh" x-scrollable>
       <div v-for="game in games" :key="game.gameId" class="mb-3">
         <div class="mb-1 flex justify-end">
@@ -78,6 +91,9 @@
   </NModal>
 </template>
 <script setup lang="ts">
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
 import {
   computed,
   onMounted,
@@ -90,6 +106,7 @@ import {
 } from 'vue'
 import { useRouter } from 'vue-router'
 import {
+  NProgress,
   NAlert,
   NButton,
   NCard,
@@ -104,6 +121,7 @@ import { useTranslation } from 'i18next-vue'
 import { useInstance } from '@renderer-shared/shards'
 import { useAppCommonStore } from '@renderer-shared/shards/app-common/store'
 import { useGameResourceProvider } from '@renderer-shared/providers/game-resource'
+import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
 import MatchCard from '@renderer-shared/components/match-card/MatchCard.vue'
 import type { PlayerIdentity } from '@shared/pro/champion-pool'
 import type { SocialSummary, Partner } from '@shared/pro/experience'
@@ -115,6 +133,7 @@ import MatchShare from '../../../shared/components/share-card/MatchShare.vue'
 const props = defineProps<{ player: PlayerIdentity; refreshToken: number }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.experience' }),
   { t: commonT } = useTranslation('common')
+const { t: profileT } = useTranslation(undefined, { keyPrefix: 'pro.profile' })
 const api = useInstance(ExperienceRenderer),
   pool = useInstance(ChampionPoolRenderer),
   router = useRouter()
@@ -154,6 +173,17 @@ const sessionLines = computed(() => {
       ]
     : []
 })
+useQueryCache(
+  () => JSON.stringify([props.player.serverId, props.player.puuid]),
+  data,
+  () => null
+)
+useQueryCache(
+  () =>
+    JSON.stringify([props.player.serverId, props.player.puuid, selected.value?.puuid, page.value]),
+  games,
+  () => []
+)
 async function load() {
   if (!active) return
   const current = ++epoch
@@ -176,7 +206,6 @@ function openPartner(partner: Partner) {
 function openGames(partner: Partner) {
   selected.value = partner
   page.value = 1
-  games.value = []
   show.value = true
   void loadGames()
 }
@@ -200,15 +229,11 @@ async function loadGames() {
   }
 }
 watch(page, loadGames)
-watch(
-  () => [props.player.serverId, props.player.puuid],
-  () => {
-    data.value = null
-    show.value = false
-    gameEpoch++
-    void load()
-  }
-)
+watch([() => props.player.serverId, () => props.player.puuid], () => {
+  show.value = false
+  gameEpoch++
+  void load()
+})
 watch(() => props.refreshToken, load)
 pool.onChanged(load)
 onActivated(() => {
@@ -227,4 +252,41 @@ onScopeDispose(() => {
   epoch++
   gameEpoch++
 })
+useRefreshFeedback(
+  () => error.value || gamesError.value,
+  () => t('failed')
+)
 </script>
+
+<style scoped>
+.partner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+.partner-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--profile-border);
+  border-radius: 10px;
+  background: var(--la-card-muted-surface);
+}
+.partner-score {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin: 18px 0 10px;
+}
+.partner-score strong {
+  font-size: 30px;
+  color: var(--profile-win);
+  font-variant-numeric: tabular-nums;
+}
+.partner-combo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  margin-top: 12px;
+}
+</style>

@@ -116,6 +116,7 @@ describe.runIf(!!process.versions.electron)('personal rank snapshots', () => {
     await vi.advanceTimersByTimeAsync(1500)
     leagueClient.events.emit('/lol-ranked/v1/current-ranked-stats', { data: ranked })
     leagueClient.events.emit('/lol-gameflow/v1/gameflow-phase', { data: 'EndOfGame' })
+    leagueClient.events.emit('/lol-ranked/v1/current-ranked-stats', { data: ranked })
     await vi.advanceTimersByTimeAsync(1500)
     const result = await controller.history({ serverId: 'EUW1', puuid: 'player' }, 1)
     expect(result.total).toBe(2)
@@ -124,6 +125,17 @@ describe.runIf(!!process.versions.electron)('personal rank snapshots', () => {
     leagueClient.events.emit('/lol-ranked/v1/current-ranked-stats', { data: ranked })
     await vi.advanceTimersByTimeAsync(5000)
     expect(leagueClient.api.ranked.getCurrentRankedStats).toHaveBeenCalledTimes(2)
+  })
+  it('retries a transient end-game failure without losing prior snapshots', async () => {
+    await vi.advanceTimersByTimeAsync(1500)
+    leagueClient.api.ranked.getCurrentRankedStats.mockRejectedValueOnce(new Error('busy'))
+    leagueClient.events.emit('/lol-gameflow/v1/gameflow-phase', { data: 'EndOfGame' })
+    await vi.advanceTimersByTimeAsync(1500)
+    expect((await controller.players()).length).toBe(1)
+    await vi.advanceTimersByTimeAsync(5000)
+    const result = await controller.history({ serverId: 'EUW1', puuid: 'player' }, 1)
+    expect(result.total).toBe(2)
+    expect(result.items[0].reason).toBe('endGame')
   })
   it('filters full curves by account, queue and season, retaining equal-time and unchanged captures', async () => {
     const ids: string[] = []
@@ -172,14 +184,15 @@ describe.runIf(!!process.versions.electron)('personal rank snapshots', () => {
       ['EUW1', 'player', 3, 300, 103],
       ['EUW1', 'player', 4, 200, 222],
       ['NA1', 'player', 5, 200, 103],
-      ['EUW1', 'other', 6, 200, 103]
+      ['EUW1', 'other', 6, 200, 103],
+      ['EUW1', 'player', 7, 200, 103]
     ] as const) {
       await source.query('INSERT INTO PoolMatches VALUES (?, ?, ?, ?, ?, ?)', [
         serverId,
         puuid,
         gameId,
         startedAt,
-        JSON.stringify({ championId }),
+        JSON.stringify({ championId, queueId: gameId === 7 ? 450 : 420 }),
         JSON.stringify(sgpSummary(gameId))
       ])
     }
@@ -214,13 +227,15 @@ describe.runIf(!!process.versions.electron)('personal rank snapshots', () => {
       (await controller.matches(profileMatchesSchema.parse({ serverId: 'EUW1', puuid: 'player' })))
         .total
     ).toBe(4)
+    expect((await controller.matches({ ...query, queueIds: [440] })).total).toBe(0)
+    expect(profileMatchesSchema.safeParse({ ...query, queueIds: [450] }).success).toBe(false)
     expect(profileMatchesSchema.safeParse({ ...query, from: 300 }).success).toBe(false)
     expect(profileMatchesSchema.safeParse({ ...query, pageSize: 1000 }).success).toBe(false)
   })
   it('reads recent activity for only the selected account and region with source-specific durations', async () => {
     const startedAt = Date.now() - 86_400_000
     const summary = sgpSummary()
-    const projection = JSON.stringify({ startedAt, outcome: 'win' })
+    const projection = JSON.stringify({ startedAt, outcome: 'win', queueId: 420 })
     for (const [serverId, puuid, gameId, game] of [
       ['EUW1', 'player', 1, summary],
       ['EUW1', 'player', 2, { source: 'lcu', data: { gameDuration: 1800 } }],
@@ -244,5 +259,9 @@ describe.runIf(!!process.versions.electron)('personal rank snapshots', () => {
       durationSamples: 2
     })
     expect((await controller.activity({ serverId: 'EUW1', puuid: 'missing' })).month.games).toBe(0)
+    expect(
+      (await controller.activity({ serverId: 'EUW1', puuid: 'player', queueIds: [440] })).month
+        .games
+    ).toBe(0)
   })
 })

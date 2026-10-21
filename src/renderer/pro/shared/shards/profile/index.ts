@@ -4,6 +4,7 @@ import type { PlayerIdentity } from '@shared/pro/champion-pool'
 import {
   PROFILE_NAMESPACE,
   type ProfileActivity,
+  type ProfileActivityQuery,
   type ProfileMatches,
   type ProfileMatchesQuery,
   type ProfileSnapshot,
@@ -25,7 +26,7 @@ export class ProfileRenderer {
   players() {
     return this._ipc.call<ProfileSnapshot[]>(PROFILE_NAMESPACE, 'players')
   }
-  activity(player: PlayerIdentity) {
+  activity(player: PlayerIdentity & Partial<Pick<ProfileActivityQuery, 'queueIds'>>) {
     return this._ipc.call<ProfileActivity>(PROFILE_NAMESPACE, 'activity', player)
   }
   matches(query: ProfileMatchesQuery) {

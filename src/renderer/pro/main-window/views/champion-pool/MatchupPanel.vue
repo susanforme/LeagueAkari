@@ -4,12 +4,8 @@
     :title="t('title')"
     :style="{ background: 'var(--pool-surface)', borderColor: 'var(--pool-border)' }"
   >
-    <template #header-extra
-      ><NButton size="small" :loading="loading" :disabled="hydrating" @click="load">{{
-        t('refresh')
-      }}</NButton></template
-    >
-    <NAlert v-if="error" type="error">{{ t('failed') }}</NAlert>
+    <template #header-extra><RefreshButton :disabled="hydrating" @click="load" /></template>
+
     <div
       v-if="result?.missingTimelineGameIds?.length"
       class="mb-3 flex flex-wrap items-center gap-3"
@@ -31,7 +27,7 @@
     <NAlert v-if="hydrationFailed" class="mb-3" type="warning">{{
       poolT('detailsUnavailable')
     }}</NAlert>
-    <NSpin :show="loading">
+    <NSpin :show="loading && !result">
       <div class="flex flex-col gap-3">
         <NAlert v-if="result?.truncated" type="warning">{{ poolT('truncated') }}</NAlert>
         <span v-if="result?.excluded" class="text-xs opacity-60">{{
@@ -150,6 +146,10 @@
   </NCard>
 </template>
 <script setup lang="ts">
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
+import RefreshButton from '../../../shared/components/RefreshButton.vue'
 import {
   computed,
   ref,
@@ -265,6 +265,11 @@ async function hydrate() {
 }
 let active = false,
   generation = 0
+useQueryCache(
+  () => JSON.stringify([props.query, opponentId.value, page.value]),
+  result,
+  () => null
+)
 async function load() {
   const current = ++generation
   if (!active) return
@@ -286,11 +291,14 @@ async function load() {
 }
 watch(
   () => props.query,
-  () => {
+  (next, previous) => {
+    if (JSON.stringify(next) === JSON.stringify(previous)) {
+      void load()
+      return
+    }
     generation++
     stopHydration()
     hydrationFailed.value = false
-    result.value = null
     opponentId.value = null
     page.value = 1
     void load()
@@ -301,7 +309,6 @@ watch(opponentId, () => {
   page.value = 1
 })
 watch([opponentId, page], () => {
-  result.value = result.value ? { ...result.value, matches: [] } : null
   void load()
 })
 function activate() {
@@ -322,4 +329,8 @@ onMounted(activate)
 onActivated(activate)
 onDeactivated(deactivate)
 onScopeDispose(deactivate)
+useRefreshFeedback(
+  () => error.value,
+  () => t('failed')
+)
 </script>

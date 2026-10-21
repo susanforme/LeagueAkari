@@ -11,14 +11,14 @@
       >
     </div>
     <NScrollbar class="min-h-0 flex-1"
-      ><div v-if="active" class="p-6">
-        <FocusGoals v-if="tab === 'training'" class="mb-4" />
-        <TrainingPanel v-if="tab === 'training'" /><BatchPanel v-else /></div
+      ><div class="p-6">
+        <KeepAlive><FocusGoals v-if="tab === 'training'" class="mb-4" /></KeepAlive>
+        <KeepAlive><TrainingPanel v-if="tab === 'training'" /><BatchPanel v-else /></KeepAlive></div
     ></NScrollbar>
   </div>
 </template>
 <script setup lang="ts">
-import { ref, onActivated, onDeactivated } from 'vue'
+import { ref } from 'vue'
 import { NIcon, NRadioGroup, NRadioButton, NScrollbar } from 'naive-ui'
 import { TargetArrow24Regular } from '@vicons/fluent'
 import { useTranslation } from 'i18next-vue'
@@ -28,9 +28,6 @@ import { z } from 'zod'
 import { useWorkspaceState } from '../../../shared/composables/useWorkspaceState'
 import FocusGoals from './FocusGoals.vue'
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.workshop' }),
-  tab = ref<'training' | 'batch'>('training'),
-  active = ref(false)
-onActivated(() => (active.value = true))
-onDeactivated(() => (active.value = false))
+  tab = ref<'training' | 'batch'>('training')
 useWorkspaceState('pro-progress', { tab }, z.object({ tab: z.enum(['training', 'batch']) }))
 </script>

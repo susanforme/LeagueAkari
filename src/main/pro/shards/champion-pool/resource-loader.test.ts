@@ -9,10 +9,15 @@ describe.runIf(!!process.versions.electron)('champion catalog cache', () => {
   let database: DataSource
   let loader: ResourceLoader
   const fetchMock = vi.fn()
+  const changed = vi.fn()
   beforeEach(async () => {
     database = new DataSource({ type: 'better-sqlite3', database: ':memory:' })
     await initializeProDatabase(database)
-    loader = new ResourceLoader({ storage: { dataSource: database } } as ChampionPoolContext)
+    loader = new ResourceLoader(
+      { storage: { dataSource: database } } as ChampionPoolContext,
+      changed
+    )
+    changed.mockReset()
     fetchMock.mockReset()
     vi.stubGlobal('fetch', fetchMock)
   })
@@ -59,11 +64,37 @@ describe.runIf(!!process.versions.electron)('champion catalog cache', () => {
     ])
     fetchMock.mockRejectedValue(new Error('offline'))
     expect(await loader.get('zh-CN')).toEqual(catalog)
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledWith('zh-CN', true))
     fetchMock.mockImplementation(async () => ({
       ok: true,
       json: async () => [{ id: 103, name: '九尾妖狐', description: '阿狸', alias: 'Ahri' }]
     }))
+    expect(await loader.get('zh-CN')).toEqual(catalog)
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledWith('zh-CN', false))
     expect((await loader.get('zh-CN')).championSearch).toEqual({ 103: '九尾妖狐 阿狸 Ahri' })
+  })
+
+  it('serves expired local data while a slow refresh is pending', async () => {
+    const catalog = { champions: { 103: 'Ahri' }, championSearch: { 103: 'Ahri' }, queues: {} }
+    await database.query('INSERT INTO PoolResources VALUES (?, ?, ?)', [
+      'en',
+      JSON.stringify(catalog),
+      0
+    ])
+    let release!: () => void
+    const wait = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    fetchMock.mockImplementation(async () => {
+      await wait
+      return { ok: true, json: async () => [{ id: 103, name: 'Updated' }] }
+    })
+    expect(await loader.get('en')).toEqual(catalog)
+    expect(await loader.get('en')).toEqual(catalog)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    release()
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledWith('en', false))
+    expect((await loader.get('en')).champions[103]).toBe('Updated')
   })
 
   it('does not cache malformed remote data', async () => {

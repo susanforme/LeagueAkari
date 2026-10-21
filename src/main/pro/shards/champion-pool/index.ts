@@ -37,7 +37,9 @@ export class ChampionPoolMain implements IAkariShardInitDispose {
       logger: loggerFactory.create(ChampionPoolMain.id)
     }
     this._controller = new ChampionPoolController(this._context)
-    this._resources = new ResourceLoader(this._context)
+    this._resources = new ResourceLoader(this._context, (key, failed) =>
+      this._context.ipc.sendEvent(ChampionPoolMain.id, 'resources-changed', { key, failed })
+    )
   }
 
   async onInit() {

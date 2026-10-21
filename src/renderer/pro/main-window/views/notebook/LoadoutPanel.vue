@@ -5,7 +5,7 @@
       <NSelect
         v-model:value="selectedId"
         :options="options"
-        :loading="loading"
+        :loading="loading && !loadedKey"
         :placeholder="t('choose')"
         :aria-label="t('choose')"
       />
@@ -19,7 +19,7 @@
             : null
         }"
       />
-      <span v-if="!loading && !entries.length" class="text-xs opacity-60">{{ t('empty') }}</span>
+      <span v-if="!loading && !loadedKey" class="text-xs opacity-60">{{ t('empty') }}</span>
     </template>
     <div class="flex flex-wrap items-center gap-2">
       <NButton
@@ -84,12 +84,10 @@
     <NAlert v-if="status?.flash === 'mismatch' || status?.flash === 'failed'" type="warning">{{
       t(status.flash === 'failed' ? 'flashFailed' : 'flashMismatch')
     }}</NAlert>
-    <NAlert v-if="failed" type="error"
-      >{{ t('failed') }} <NButton text @click="refresh">{{ t('retry') }}</NButton></NAlert
-    >
   </div>
 </template>
 <script setup lang="ts">
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
 import { computed, onActivated, onDeactivated, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { NAlert, NButton, NPagination, NSelect, NTag, useDialog } from 'naive-ui'
 import { useRouter } from 'vue-router'
@@ -143,8 +141,8 @@ const canRetry = computed(
 let timer: ReturnType<typeof setTimeout> | undefined,
   generation = 0,
   disposed = false,
-  active = true,
-  loadedKey = ''
+  active = true
+const loadedKey = ref('')
 async function refresh() {
   clearTimeout(timer)
   if (disposed || !active) return
@@ -164,7 +162,7 @@ async function refresh() {
       total.value = 0
     }
     status.value = next
-    if (!props.entry && key && loadedKey !== `${key}:${page.value}`) {
+    if (!props.entry && key && loadedKey.value !== `${key}:${page.value}`) {
       loading.value = true
       const result = await api.list(
         listSchema.parse({
@@ -183,7 +181,7 @@ async function refresh() {
           ? [preferred, ...result.items]
           : result.items
       total.value = result.total
-      loadedKey = `${key}:${page.value}`
+      loadedKey.value = `${key}:${page.value}`
       selectedId.value = entries.value.some((e) => e.id === next.entryId)
         ? next.entryId
         : (preferred?.id ?? result.items[0]?.id ?? null)
@@ -220,7 +218,7 @@ async function apply(mode: LoadoutApply['mode'], request = application(mode)) {
     if (!disposed) await refresh()
   } catch {
     if (!disposed) {
-      loadedKey = ''
+      loadedKey.value = ''
       failed.value = true
     }
   } finally {
@@ -232,7 +230,7 @@ function retryFailed() {
   if (request) void apply('apply', { ...request, retry: true })
 }
 function reload() {
-  loadedKey = ''
+  loadedKey.value = ''
   void refresh()
 }
 function overwrite() {
@@ -272,7 +270,7 @@ watch(
     status.value = null
     entries.value = []
     selectedId.value = null
-    loadedKey = ''
+    loadedKey.value = ''
     page.value = 1
     void refresh()
   },
@@ -293,4 +291,8 @@ onScopeDispose(() => {
   generation++
   clearTimeout(timer)
 })
+useRefreshFeedback(
+  () => failed.value,
+  () => t('failed')
+)
 </script>

@@ -33,6 +33,9 @@
             <span>{{ step.label }}</span>
           </span>
         </NTag>
+        <p v-if="step.notes" class="w-full text-sm whitespace-pre-wrap">
+          {{ index + 1 }}. {{ step.notes }}
+        </p>
       </template>
     </div>
     <div v-for="(group, index) in content.groups" :key="index" class="flex flex-col gap-2">
@@ -82,6 +85,18 @@
         </div>
       </template>
     </div>
+    <div v-for="(s, i) in content.situations" :key="i" class="flex flex-col gap-2">
+      <strong>{{ s.title }}</strong>
+      <p class="whitespace-pre-wrap">{{ s.response }}</p>
+    </div>
+    <img
+      v-for="(src, i) in content.attachments"
+      :key="i"
+      :src="src"
+      :alt="t('body')"
+      class="max-w-full rounded"
+      style="max-height: 400px; object-fit: contain"
+    />
     <div v-if="content.text" class="break-words whitespace-pre-wrap">
       {{ compact && content.text.length > 180 ? `${content.text.slice(0, 180)}…` : content.text }}
     </div>

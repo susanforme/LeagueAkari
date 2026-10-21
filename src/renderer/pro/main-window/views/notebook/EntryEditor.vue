@@ -27,6 +27,35 @@
     </div>
     <template v-if="content.kind === 'matchup'">
       <span class="font-medium">{{ briefT('title') }}</span>
+      <NSelect
+        v-model:value="content.matchupRating"
+        clearable
+        :options="['favorable', 'even', 'difficult'].map((value) => ({ value, label: hw(value) }))"
+        :placeholder="hw('personalRating')"
+        :aria-label="hw('personalRating')"
+      />
+      <div v-for="(s, i) in content.situations" :key="i" class="flex flex-col gap-2">
+        <NInput
+          v-model:value="s.title"
+          :maxlength="120"
+          :placeholder="hw('situation')"
+          :aria-label="hw('situation')"
+        />
+        <NInput
+          v-model:value="s.response"
+          type="textarea"
+          :maxlength="2000"
+          :placeholder="hw('response')"
+          :aria-label="hw('response')"
+        />
+        <NButton size="tiny" @click="content.situations?.splice(i, 1)">{{ t('remove') }}</NButton>
+      </div>
+      <NButton
+        dashed
+        :disabled="(content.situations?.length ?? 0) >= 20"
+        @click="(content.situations ??= []).push({ title: '', response: '' })"
+        >＋ {{ hw('situation') }}</NButton
+      >
       <NInput
         v-for="field in ['opening', 'trading', 'caution'] as const"
         :key="field"
@@ -44,72 +73,12 @@
         "
       />
     </template>
-    <template v-if="content.kind === 'combo'">
-      <div
-        v-for="(step, index) in content.steps"
-        :key="index"
-        class="flex flex-wrap items-center gap-2 rounded border border-(--la-color-popover-border) p-2"
-      >
-        <span>{{ index + 1 }}</span>
-        <NSelect
-          :value="step.action"
-          class="w-32!"
-          :options="actionOptions"
-          :aria-label="t('action')"
-          @update:value="
-            (value) => {
-              step.action = value
-              step.entityId = value === 'skill' ? 1 : null
-            }
-          "
-        />
-        <div v-if="step.action === 'skill'" class="flex gap-1">
-          <NButton
-            v-for="slot in [1, 2, 3, 4]"
-            :key="slot"
-            size="small"
-            :type="step.entityId === slot ? 'primary' : 'default'"
-            @click="step.entityId = slot"
-            ><SkillIcon :slot="slot" :skills="skills"
-          /></NButton>
-        </div>
-        <EntitySelect
-          v-if="step.action === 'item' || step.action === 'spell'"
-          v-model:value="step.entityId"
-          class="min-w-44 flex-1"
-          :options="step.action === 'item' ? catalog.items : catalog.spells"
-          :placeholder="t(step.action)"
-        />
-        <NInput
-          v-model:value="step.label"
-          class="min-w-32 flex-1"
-          :maxlength="120"
-          :placeholder="t('stepLabel')"
-          :aria-label="t('stepLabel')"
-        />
-        <NButton
-          size="tiny"
-          :disabled="index === 0"
-          :aria-label="t('moveUp')"
-          @click="move(content.steps, index, -1)"
-          >↑</NButton
-        >
-        <NButton
-          size="tiny"
-          :disabled="index === content.steps.length - 1"
-          :aria-label="t('moveDown')"
-          @click="move(content.steps, index, 1)"
-          >↓</NButton
-        >
-        <NButton size="tiny" @click="content.steps.splice(index, 1)">{{ t('remove') }}</NButton>
-      </div>
-      <NButton
-        dashed
-        :disabled="content.steps.length >= 100"
-        @click="content.steps.push({ action: 'skill', entityId: 1, label: '' })"
-        >{{ t('addStep') }}</NButton
-      >
-    </template>
+    <ComboBuilder
+      v-if="content.kind === 'combo'"
+      :content="content"
+      :catalog="catalog"
+      :skills="skills"
+    />
     <template v-if="content.kind === 'build'">
       <LoadoutEditor :content="content" :catalog="catalog" />
       <NAlert v-if="content.source" type="info">{{ t('importExplanation') }}</NAlert>
@@ -186,35 +155,7 @@
         >{{ t('addGroup') }}</NButton
       >
       <span class="font-medium">{{ t('skillOrder') }}</span>
-      <div class="flex flex-wrap gap-1">
-        <span
-          v-for="(slot, index) in content.skillOrder"
-          :key="index"
-          class="flex flex-col items-center gap-1"
-        >
-          <span class="text-xs opacity-60">{{ index + 1 }}</span>
-          <NButton
-            size="small"
-            :aria-label="t('removeLevel', { level: index + 1 })"
-            @click="content.skillOrder.splice(index, 1)"
-          >
-            <SkillIcon :slot="slot" :skills="skills" />
-          </NButton>
-        </span>
-      </div>
-      <div class="flex gap-2">
-        <NButton
-          v-for="slot in [1, 2, 3, 4]"
-          :key="slot"
-          :disabled="content.skillOrder.length >= 30"
-          @click="content.skillOrder.push(slot)"
-        >
-          <SkillIcon :slot="slot" :skills="skills" /><span class="ml-1">+</span>
-        </NButton>
-        <NButton :disabled="!content.skillOrder.length" @click="content.skillOrder.pop()">{{
-          t('undo')
-        }}</NButton>
-      </div>
+      <SkillOrder v-model="content.skillOrder" :skills="skills" editable />
     </template>
     <EntryMetadata :content="content" :entry-id="entryId" />
     <div class="flex items-center justify-between gap-2">
@@ -240,7 +181,6 @@
 import ItemDisplay from '@renderer-shared/components/widgets/ItemDisplay.vue'
 import { useGameResourceProvider } from '@renderer-shared/providers/game-resource'
 import {
-  actions,
   type NotebookCatalog,
   type NotebookContent,
   type NotebookSkills
@@ -249,7 +189,8 @@ import { useTranslation } from 'i18next-vue'
 import { NAlert, NButton, NCheckbox, NInput, NInputNumber, NSelect } from 'naive-ui'
 import { computed } from 'vue'
 import EntitySelect from './EntitySelect.vue'
-import SkillIcon from './SkillIcon.vue'
+import ComboBuilder from './workspace/ComboBuilder.vue'
+import SkillOrder from './workspace/SkillOrder.vue'
 import EntryMetadata from './EntryMetadata.vue'
 import LoadoutEditor from './LoadoutEditor.vue'
 defineProps<{
@@ -260,11 +201,9 @@ defineProps<{
   champions: { id: number; name: string }[]
 }>()
 const resources = useGameResourceProvider()
+const { t: hw } = useTranslation(undefined, { keyPrefix: 'pro.handbookWorkspace' })
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.notebook' })
 const { t: briefT } = useTranslation(undefined, { keyPrefix: 'pro.matchupBrief' })
-const actionOptions = computed(() =>
-  actions.map((value) => ({ value, label: t(`actions.${value}`) }))
-)
 const positionOptions = computed(() =>
   ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY'].map((value) => ({
     value,

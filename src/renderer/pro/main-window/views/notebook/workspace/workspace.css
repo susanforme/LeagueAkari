@@ -1,0 +1,106 @@
+.handbook-workspace {
+  --hw-surface: color-mix(in srgb, var(--la-card-surface-95), white 55%);
+  --hw-border: rgb(var(--la-card-border-rgb) / 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.handbook-workspace .hw-panel {
+  background: var(--hw-surface);
+  border: 1px solid var(--hw-border);
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 0;
+}
+.handbook-workspace h2,
+.handbook-workspace h3,
+.handbook-workspace p {
+  margin: 0;
+}
+.handbook-workspace h2 {
+  font-size: 20px;
+}
+.handbook-workspace h3 {
+  font-size: 14px;
+  font-weight: 650;
+}
+.handbook-workspace .hw-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.handbook-workspace .hw-between {
+  justify-content: space-between;
+}
+.handbook-workspace .hw-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.handbook-workspace .hw-muted {
+  opacity: 0.62;
+  font-size: 12px;
+}
+.handbook-workspace .hw-text {
+  white-space: pre-wrap;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.handbook-workspace .hw-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.handbook-workspace .hw-columns {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.handbook-workspace .hw-entry {
+  width: 100%;
+  height: auto;
+  text-align: left;
+  justify-content: flex-start;
+  padding: 12px;
+}
+.handbook-workspace .hw-entry .n-button__content {
+  width: 100%;
+  justify-content: flex-start;
+  white-space: normal;
+  gap: 10px;
+}
+.handbook-workspace .hw-selected {
+  background: rgba(50, 184, 145, 0.12);
+  border-color: rgba(50, 184, 145, 0.5);
+}
+.handbook-workspace .hw-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.handbook-workspace .hw-rule {
+  border-top: 1px solid var(--hw-border);
+  padding-top: 12px;
+}
+@media (max-width: 1050px) {
+  .handbook-workspace .hw-columns {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  .handbook-workspace .hw-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 780px) {
+  .handbook-workspace .hw-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+[data-theme='dark'] .handbook-workspace {
+  --hw-surface: color-mix(in srgb, var(--la-card-surface-95), white 4%);
+}

@@ -5,10 +5,8 @@
         ><NIcon :component="Target" :size="20" />{{ t('title') }}</span
       ></template
     >
-    <template #header-extra
-      ><NButton size="tiny" :loading="loading" @click="load">{{ t('reload') }}</NButton></template
-    >
-    <NAlert v-if="error" type="error">{{ t('failed') }}</NAlert>
+    <template #header-extra><RefreshButton @click="load" /></template>
+
     <div class="flex flex-col gap-3">
       <div
         v-for="item in result?.items"
@@ -43,9 +41,13 @@
   </NCard>
 </template>
 <script setup lang="ts">
-import { ref, shallowRef, watch, onMounted, onScopeDispose } from 'vue'
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
+import RefreshButton from '../../../shared/components/RefreshButton.vue'
+import { ref, shallowRef, watch, onActivated, onDeactivated, onScopeDispose } from 'vue'
 import { useRouter } from 'vue-router'
-import { NCard, NButton, NAlert, NEmpty, NPagination, NIcon } from 'naive-ui'
+import { NCard, NButton, NEmpty, NPagination, NIcon } from 'naive-ui'
 import { Target } from '@vicons/tabler'
 import { useTranslation } from 'i18next-vue'
 import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
@@ -63,6 +65,11 @@ const page = ref(1),
   error = ref(false)
 let generation = 0,
   disposed = false
+useQueryCache(
+  () => String(page.value),
+  result,
+  () => null
+)
 async function load() {
   const current = ++generation
   loading.value = true
@@ -103,9 +110,16 @@ async function finish(item: FocusPage['items'][number]) {
   }
 }
 watch(page, load)
-onMounted(load)
+onActivated(load)
+onDeactivated(() => {
+  generation++
+})
 onScopeDispose(() => {
   disposed = true
   generation++
 })
+useRefreshFeedback(
+  () => error.value,
+  () => t('failed')
+)
 </script>

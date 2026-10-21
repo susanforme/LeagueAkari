@@ -32,6 +32,11 @@ export function useChampionPoolResources() {
       if (generation === current) unavailable.value = true
     }
   }
+  api.onResourcesChanged(({ key, failed }) => {
+    if (key !== (upstream.runtime.locale === 'zh-CN' ? 'zh-CN' : 'en')) return
+    if (failed) unavailable.value = true
+    else void reload()
+  })
   watch(
     () => upstream.runtime.locale,
     () => {

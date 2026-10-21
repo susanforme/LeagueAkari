@@ -17,7 +17,6 @@
         @update:value="save({ ...value, forceFlash: $event })"
       />
     </SettingsRow>
-    <div class="text-xs opacity-60">{{ t('forceFlashHelp') }}</div>
     <NAlert v-if="failed" type="error"
       >{{ t('settingsFailed') }} <NButton text @click="load">{{ t('retry') }}</NButton></NAlert
     >

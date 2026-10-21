@@ -8,8 +8,10 @@ import { initializePracticeAndTraining } from './upgrades/version-5'
 import { initializeExperience } from './upgrades/version-6'
 import { initializePlayPlans } from './upgrades/version-7'
 import { initializeLoadoutState } from './upgrades/version-8'
+import { initializeNotebookFavorites } from './upgrades/version-9'
+import { initializeHandbookWorkspace } from './upgrades/version-10'
 
-export const PRO_DATABASE_VERSION = 8
+export const PRO_DATABASE_VERSION = 10
 
 export class NewerDatabaseVersionError extends Error {}
 
@@ -29,6 +31,8 @@ export async function initializeProDatabase(dataSource: DataSource) {
       if (version < 6) await initializeExperience(manager)
       if (version < 7) await initializePlayPlans(manager)
       if (version < 8) await initializeLoadoutState(manager)
+      if (version < 9) await initializeNotebookFavorites(manager)
+      if (version < 10) await initializeHandbookWorkspace(manager)
       await manager.query(`PRAGMA user_version = ${PRO_DATABASE_VERSION}`)
     })
   }

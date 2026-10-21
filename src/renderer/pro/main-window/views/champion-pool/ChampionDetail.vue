@@ -44,10 +44,7 @@
         ><small>{{ t(key) }}</small>
       </div>
     </section>
-    <NAlert v-if="assetsUnavailable" type="warning"
-      >{{ t('resourcesUnavailable') }}
-      <NButton text size="tiny" @click="reloadAssets">{{ t('retry') }}</NButton></NAlert
-    >
+
     <MatchupPanel v-if="query" :query="query" />
     <div class="flex items-center justify-between gap-3">
       <span class="font-bold">{{ t('matchHistory') }}</span>
@@ -63,10 +60,6 @@
         @update:page-size="$emit('update:pageSize', $event)"
       />
     </div>
-    <NAlert v-if="failedGameId" type="warning" closable @close="failedGameId = null">
-      {{ t('detailsUnavailable') }}
-      <NButton text size="tiny" @click="retryDetails">{{ t('retry') }}</NButton>
-    </NAlert>
     <NScrollbar x-scrollable>
       <div class="flex flex-col gap-1">
         <div
@@ -74,12 +67,7 @@
           :key="`${player.serverId}:${player.puuid}:${game.gameId}`"
           class="flex flex-col gap-1"
         >
-          <PoolMatchRow
-            :summary="game"
-            :puuid="player.puuid"
-            :expanded="!!expanded[game.gameId]"
-            @update:expanded="expanded[game.gameId] = $event"
-          >
+          <div class="flex items-center justify-end gap-2">
             <MatchShare :summary="game" :puuid="player.puuid" />
             <NButton
               size="tiny"
@@ -99,10 +87,9 @@
               @click="createBuild(game)"
               >{{ notebookT('fromMatch') }}</NButton
             >
-          </PoolMatchRow>
+          </div>
           <MatchCard
-            v-if="expanded[game.gameId]"
-            :is-expanded="true"
+            v-model:is-expanded="expanded[game.gameId]"
             :summary="game"
             :puuid="player.puuid"
             :hide-privacy="app.settings.streamerMode"
@@ -119,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import PoolMatchRow from './PoolMatchRow.vue'
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
 import MatchShare from '../../../shared/components/share-card/MatchShare.vue'
 import MatchCard from '@renderer-shared/components/match-card/MatchCard.vue'
 import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
@@ -132,7 +119,7 @@ import { NOTEBOOK_ROUTE } from '@shared/pro/notebook'
 import { REVIEW_ROUTE } from '@shared/pro/review'
 import { buildFromMatch } from '@shared/pro/notebook/match-build'
 import { useTranslation } from 'i18next-vue'
-import { NAlert, NButton, NEmpty, NPagination, NScrollbar } from 'naive-ui'
+import { NButton, NEmpty, NPagination, NScrollbar } from 'naive-ui'
 import { onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { importedBuild } from '../notebook/import-draft'
@@ -164,11 +151,7 @@ const { t: notebookT } = useTranslation(undefined, { keyPrefix: 'pro.notebook' }
 const { t: reviewT } = useTranslation(undefined, { keyPrefix: 'pro.review' })
 const router = useRouter()
 const creating = ref<number | null>(null)
-const {
-  resources,
-  unavailable: assetsUnavailable,
-  reload: reloadAssets
-} = useNotebookResources(ref(null))
+const { resources, unavailable: assetsUnavailable } = useNotebookResources(ref(null))
 const app = useAppCommonStore()
 const api = useInstance(ChampionPoolRenderer)
 const metricKeys = [
@@ -183,17 +166,15 @@ const expanded = ref<Record<number, boolean>>({})
 const details = shallowRef<Record<number, LcuOrSgpGameDetails>>({})
 const detailsLoading = ref<Record<number, boolean>>({})
 const failedGameId = ref<number | null>(null)
-const failedGames = new Set<number>()
 let generation = 0
 watch(
-  () => [props.player.serverId, props.player.puuid, props.matches],
+  [() => props.player.serverId, () => props.player.puuid],
   () => {
     generation++
     expanded.value = {}
     details.value = {}
     detailsLoading.value = {}
     failedGameId.value = null
-    failedGames.clear()
     creating.value = null
   },
   { flush: 'sync' }
@@ -202,7 +183,7 @@ onScopeDispose(() => {
   generation++
 })
 async function loadDetails(gameId: number) {
-  if (detailsLoading.value[gameId] || details.value[gameId] || failedGames.has(gameId)) return
+  if (detailsLoading.value[gameId] || details.value[gameId]) return
   const current = generation
   detailsLoading.value[gameId] = true
   failedGameId.value = null
@@ -212,18 +193,11 @@ async function loadDetails(gameId: number) {
     if (current === generation) details.value = { ...details.value, [gameId]: next }
   } catch {
     if (current === generation) {
-      failedGames.add(gameId)
       failedGameId.value = gameId
     }
   } finally {
     if (current === generation) detailsLoading.value[gameId] = false
   }
-}
-function retryDetails() {
-  if (failedGameId.value === null) return
-  const gameId = failedGameId.value
-  failedGames.delete(gameId)
-  void loadDetails(gameId)
 }
 async function createBuild(game: LcuOrSgpGameSummary) {
   if (creating.value !== null) return
@@ -241,6 +215,14 @@ async function createBuild(game: LcuOrSgpGameSummary) {
     if (current === generation) creating.value = null
   }
 }
+useRefreshFeedback(
+  () => assetsUnavailable.value,
+  () => t('resourcesUnavailable')
+)
+useRefreshFeedback(
+  () => failedGameId.value,
+  () => t('detailsUnavailable')
+)
 </script>
 
 <style scoped>

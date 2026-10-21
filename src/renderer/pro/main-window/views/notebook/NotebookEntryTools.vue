@@ -131,16 +131,7 @@ function confirmPatch() {
 }
 function practice() {
   return run(async () => {
-    const current = (await api.practices(props.entry.content.championId)).find(
-      (p) => p.entryId === props.entry.id
-    )
-    await api.savePractice({
-      entryId: props.entry.id,
-      expectedRevision: current?.revision ?? 0,
-      sourceRevision: props.entry.revision,
-      state: current?.state ?? 'pending',
-      notes: current?.notes ?? ''
-    })
+    await api.practiceFromEntry(props.entry.id)
   }, 'saved')
 }
 async function apply(mode: BuildApply['mode']) {

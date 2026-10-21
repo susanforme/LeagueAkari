@@ -2,7 +2,7 @@ import type { Insights } from '@shared/pro/progress'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
 
-import { usePersonalBaseline } from './usePersonalBaseline'
+let usePersonalBaseline: (typeof import('./usePersonalBaseline'))['usePersonalBaseline']
 
 const environment = vi.hoisted(() => ({
   activate: () => {},
@@ -26,7 +26,9 @@ const flush = async () => {
   await nextTick()
   await nextTick()
 }
-beforeEach(() => {
+beforeEach(async () => {
+  vi.resetModules()
+  ;({ usePersonalBaseline } = await import('./usePersonalBaseline'))
   vi.clearAllMocks()
   scope = effectScope()
 })
@@ -88,4 +90,18 @@ it('exposes history failures instead of presenting them as an empty baseline', a
   expect(state.error.value).toBe(true)
   expect(state.loading.value).toBe(false)
   expect(state.insights.value).toBeNull()
+})
+
+it('restores the same report baseline when its panel is recreated and refreshing fails', async () => {
+  environment.insights.mockResolvedValue(result(12))
+  scope.run(() => usePersonalBaseline(ref('cached-report'), ref(false)))!
+  await flush()
+  scope.stop()
+  scope = effectScope()
+  environment.insights.mockRejectedValue(new Error('offline'))
+  const state = scope.run(() => usePersonalBaseline(ref('cached-report'), ref(false)))!
+  expect(state.insights.value).toEqual(result(12))
+  await flush()
+  expect(state.insights.value).toEqual(result(12))
+  expect(state.error.value).toBe(true)
 })

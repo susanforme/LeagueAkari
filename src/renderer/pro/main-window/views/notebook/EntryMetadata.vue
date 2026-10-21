@@ -24,7 +24,7 @@
       multiple
       filterable
       remote
-      :loading="loading"
+      :loading="loading && !options.length"
       :options="options"
       :placeholder="t('links')"
       :max-tag-count="3"
@@ -33,6 +33,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import { useNotification } from 'naive-ui'
 import { computed, onMounted, onScopeDispose, ref } from 'vue'
 import { NDynamicTags, NInput, NSelect } from 'naive-ui'
 import { useTranslation } from 'i18next-vue'
@@ -53,6 +54,7 @@ const links = computed({
 const options = ref<{ label: string; value: string }[]>([]),
   loading = ref(false)
 let generation = 0
+const notification = useNotification()
 async function search(text = '') {
   const gen = ++generation
   loading.value = true
@@ -68,7 +70,7 @@ async function search(text = '') {
         ).values()
       ]
   } catch {
-    if (gen === generation) options.value = []
+    if (gen === generation) notification.warning({ title: t('failed'), duration: 4000 })
   } finally {
     if (gen === generation) loading.value = false
   }

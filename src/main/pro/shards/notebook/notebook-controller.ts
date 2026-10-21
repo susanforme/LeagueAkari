@@ -1,5 +1,6 @@
 import type {
   ChangeNotebook,
+  HandbookHome,
   NotebookBundle,
   NotebookChampionSummary,
   NotebookEntry,
@@ -12,6 +13,12 @@ import type {
   TransferPreview
 } from '@shared/pro/notebook'
 import { contentSchema } from '@shared/pro/notebook'
+import {
+  type ChampionGuide,
+  type ChampionGuideInput,
+  type PracticePlan,
+  blankPractice
+} from '@shared/pro/notebook/handbook'
 import { randomUUID } from 'node:crypto'
 import stringify from 'safe-stable-stringify'
 import type { DataSource, EntityManager } from 'typeorm'
@@ -33,6 +40,103 @@ export class NotebookController {
         SUM(deleted = 0 AND kind = 'build') AS build
       FROM NotebookEntries GROUP BY championId
     `)
+  }
+
+  async guide(championId: number): Promise<ChampionGuide | null> {
+    const [row] = await this._database().query(
+      'SELECT * FROM HandbookChampions WHERE championId=?',
+      [championId]
+    )
+    return row
+      ? { championId, revision: row.revision, addedAt: row.addedAt, ...JSON.parse(row.payload) }
+      : null
+  }
+  saveGuide(input: ChampionGuideInput) {
+    return this._write(async (manager) => {
+      const [row] = await manager.query('SELECT * FROM HandbookChampions WHERE championId=?', [
+        input.championId
+      ])
+      if ((row?.revision ?? 0) !== input.expectedRevision) throw new Error('conflict')
+      const { championId, expectedRevision, ...payload } = input
+      await manager.query(
+        'INSERT INTO HandbookChampions VALUES (?,?,?,?) ON CONFLICT(championId) DO UPDATE SET revision=excluded.revision,payload=excluded.payload',
+        [championId, expectedRevision + 1, row?.addedAt ?? Date.now(), JSON.stringify(payload)]
+      )
+    })
+  }
+
+  async home(): Promise<HandbookHome> {
+    const db = this._database()
+    const champions = await this.champions()
+    const added: { championId: number; addedAt: number; payload: string }[] = await db.query(
+      'SELECT * FROM HandbookChampions'
+    )
+    for (const member of added)
+      if (!champions.some((c) => c.championId === member.championId))
+        champions.push({
+          championId: member.championId,
+          total: 0,
+          trash: 0,
+          pinned: 0,
+          updatedAt: member.addedAt,
+          note: 0,
+          combo: 0,
+          matchup: 0,
+          build: 0
+        })
+    const positions: { championId: number; position: string }[] = await db.query(
+      "SELECT DISTINCT championId, json_extract(content, '$.position') AS position FROM NotebookEntries WHERE deleted=0 AND position IS NOT NULL"
+    )
+    const favorites: { championId: number }[] = await db.query(
+      'SELECT championId FROM NotebookFavorites'
+    )
+    const [{ updated }] = await db.query(
+      'SELECT COUNT(*) AS updated FROM NotebookEntries WHERE deleted=0 AND updatedAt>=?',
+      [Date.now() - 7 * 86400000]
+    )
+    const counts: { state: string; count: number }[] = await db.query(
+      "SELECT json_extract(payload,'$.state') state,COUNT(*) count FROM PracticePlans WHERE NOT EXISTS(SELECT 1 FROM NotebookEntries e WHERE e.id=json_extract(payload,'$.sourceEntryId') AND e.deleted=1) GROUP BY state"
+    )
+    const practice = { pending: 0, practicing: 0, mastered: 0, paused: 0 }
+    for (const row of counts)
+      if (row.state in practice) practice[row.state as keyof typeof practice] = row.count
+    const upcomingRows = await db.query(
+      "SELECT * FROM PracticePlans WHERE json_extract(payload,'$.state')!='mastered' AND NOT EXISTS(SELECT 1 FROM NotebookEntries e WHERE e.id=json_extract(payload,'$.sourceEntryId') AND e.deleted=1) ORDER BY (json_extract(payload,'$.state')='practicing') DESC,updatedAt DESC,id LIMIT 4"
+    )
+    const upcoming: PracticePlan[] = upcomingRows.map(
+      (p: { id: string; revision: number; updatedAt: number; payload: string }) => ({
+        id: p.id,
+        revision: p.revision,
+        updatedAt: p.updatedAt,
+        content: JSON.parse(p.payload)
+      })
+    )
+    return {
+      champions: champions.map((c) => ({
+        ...c,
+        added: added.some((a) => a.championId === c.championId),
+        positions: [
+          ...new Set([
+            ...positions.filter((p) => p.championId === c.championId).map((p) => p.position),
+            ...added
+              .filter((a) => a.championId === c.championId)
+              .flatMap((a) => JSON.parse(a.payload).position ?? [])
+          ])
+        ],
+        favorite: favorites.some((f) => f.championId === c.championId)
+      })),
+      updated,
+      practice,
+      upcoming
+    }
+  }
+
+  favoriteChampion(championId: number, favorite: boolean) {
+    return this._write(async (manager) => {
+      if (favorite)
+        await manager.query('INSERT OR IGNORE INTO NotebookFavorites VALUES (?)', [championId])
+      else await manager.query('DELETE FROM NotebookFavorites WHERE championId=?', [championId])
+    })
   }
 
   async list(query: NotebookQuery): Promise<NotebookPage> {
@@ -58,6 +162,11 @@ export class NotebookController {
       )
       const search = `%${query.search.replace(/[\\%_]/g, '\\$&')}%`
       values.push(search, search, search)
+      if (query.searchChampionIds?.length) {
+        conditions[conditions.length - 1] =
+          `(${conditions[conditions.length - 1]} OR championId IN (${query.searchChampionIds.map(() => '?').join(',')}))`
+        values.push(...query.searchChampionIds)
+      }
     }
     if (query.targetPatch && query.reviewState && query.reviewState !== 'all') {
       const patch = "json_extract(content, '$.confirmedPatch')"
@@ -81,6 +190,10 @@ export class NotebookController {
       )
       values.push(query.buildPosition)
     }
+    if (query.updatedSince !== undefined) {
+      conditions.push('updatedAt >= ?')
+      values.push(query.updatedSince)
+    }
     const where = conditions.join(' AND ')
     const db = this._database()
     const [{ total }] = await db.query(
@@ -88,7 +201,7 @@ export class NotebookController {
       values
     )
     const rows = await db.query(
-      `SELECT * FROM NotebookEntries WHERE ${where} ORDER BY pinned DESC, updatedAt DESC, id LIMIT 30 OFFSET ?`,
+      `SELECT * FROM NotebookEntries WHERE ${where} ORDER BY ${query.order === 'recent' ? '' : 'pinned DESC,'} updatedAt DESC, id LIMIT 30 OFFSET ?`,
       [...values, (query.page - 1) * 30]
     )
     return { total, items: rows.map(this._decode) }
@@ -322,6 +435,27 @@ export class NotebookController {
         [entry.id]
       )
       if ((previous?.revision ?? 0) !== request.expectedRevision) throw new Error('conflict')
+      const [plan] = await manager.query('SELECT id FROM PracticePlans WHERE id=?', [entry.id])
+      if (!plan)
+        await manager.query('INSERT INTO PracticePlans VALUES (?,?,?,?,?)', [
+          entry.id,
+          entry.content.championId,
+          1,
+          Date.now(),
+          JSON.stringify({
+            ...blankPractice(entry.content.championId, entry.content.title),
+            sourceEntryId: entry.id,
+            description: entry.content.text,
+            category: entry.content.kind,
+            notes: request.notes,
+            state: request.state
+          })
+        ])
+      else
+        await manager.query(
+          "UPDATE PracticePlans SET revision=revision+1,updatedAt=?,payload=json_set(payload,'$.state',?,'$.notes',?) WHERE id=?",
+          [Date.now(), request.state, request.notes, entry.id]
+        )
       await manager.query(
         `INSERT INTO NotebookPractice VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(entryId) DO UPDATE SET revision=excluded.revision, sourceRevision=excluded.sourceRevision,

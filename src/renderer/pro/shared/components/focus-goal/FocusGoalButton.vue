@@ -23,12 +23,11 @@
         :disabled="saving"
       />
       <NAlert v-if="error" type="error"
-        >{{ t('failed') }}
-        <NButton text :disabled="saving" @click="load">{{ t('reload') }}</NButton></NAlert
-      >
+        >{{ t('failed') }} <RefreshButton :disabled="saving" @click="load"
+      /></NAlert>
       <NButton
         type="primary"
-        :loading="saving || loading"
+        :loading="saving || (loading && !plan)"
         :disabled="!plan || error || !text.trim()"
         @click="save"
         >{{ t('save') }}</NButton
@@ -37,6 +36,7 @@
   </NModal>
 </template>
 <script setup lang="ts">
+import RefreshButton from '../RefreshButton.vue'
 import { ref, shallowRef, onScopeDispose } from 'vue'
 import { NButton, NModal, NInput, NAlert, NIcon, useMessage } from 'naive-ui'
 import { Target } from '@vicons/tabler'
@@ -55,6 +55,8 @@ const show = ref(false),
   loading = ref(false),
   error = ref(false)
 const plan = shallowRef<PlayPlan | null>(null)
+const plans = new Map<string, PlayPlan>()
+let planKey = ''
 let generation = 0,
   source: ReviewReport,
   timestamp = 0
@@ -67,12 +69,19 @@ function open() {
 }
 async function load() {
   const current = ++generation
-  plan.value = null
+  const key = JSON.stringify(source.player)
+  if (key !== planKey) {
+    plan.value = plans.get(key) ?? null
+    planKey = key
+  }
   error.value = false
   loading.value = true
   try {
     const result = await api.plan(source.player)
-    if (current === generation) plan.value = result.plan
+    if (current === generation) {
+      plan.value = result.plan
+      plans.set(key, result.plan)
+    }
   } catch {
     if (current === generation) error.value = true
   } finally {

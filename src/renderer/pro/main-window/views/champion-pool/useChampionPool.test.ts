@@ -1,6 +1,6 @@
 import type { PoolMatchPage, PoolResult } from '@shared/pro/champion-pool'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { effectScope, nextTick } from 'vue'
+import { effectScope, nextTick, reactive } from 'vue'
 
 import { useChampionPool } from './useChampionPool'
 
@@ -8,7 +8,8 @@ const environment = vi.hoisted(() => ({
   activate: () => {},
   deactivate: () => {},
   api: { status: vi.fn(), players: vi.fn(), query: vi.fn(), matches: vi.fn(), onChanged: vi.fn() },
-  tabs: { getSearchHistory: vi.fn() }
+  tabs: { getSearchHistory: vi.fn() },
+  league: { isConnected: false, summoner: { me: null as { puuid: string } | null } }
 }))
 vi.mock('vue', async (load) => ({
   ...(await load<typeof import('vue')>()),
@@ -28,7 +29,7 @@ vi.mock('@main-window/shards/player-tabs/store', () => ({
   usePlayerTabsStore: () => ({ tabs: [], frontendSettings: { matchHistoryUseSgpApi: true } })
 }))
 vi.mock('@renderer-shared/shards/league-client/store', () => ({
-  useLeagueClientStore: () => ({ isConnected: false, summoner: { me: null } })
+  useLeagueClientStore: () => environment.league
 }))
 vi.mock('@renderer-shared/shards/sgp/store', () => ({
   useSgpStore: () => ({ availability: { sgpServerId: 'EUW1' } })
@@ -44,6 +45,7 @@ const flush = async () => {
 beforeEach(async () => {
   vi.useFakeTimers()
   vi.clearAllMocks()
+  environment.league = reactive({ isConnected: false, summoner: { me: null } })
   environment.api.status.mockResolvedValue({ storage: 'ready', sync: { running: false } })
   environment.api.players.mockResolvedValue([
     { serverId: 'EUW1', puuid: 'one', name: 'One', updatedAt: 0 },
@@ -179,4 +181,33 @@ it('preserves filters across deactivation while stopping polling and ignoring pe
   expect(environment.api.query).toHaveBeenLastCalledWith(
     expect.objectContaining({ queueIds: [450], patch: '26.20' })
   )
+})
+
+it('keeps cached content visible without loading on refresh failure', async () => {
+  const cached = pool.result.value
+  let reject!: (error: Error) => void
+  environment.api.query.mockImplementationOnce(
+    () =>
+      new Promise((_, fail) => {
+        reject = fail
+      })
+  )
+  const pending = pool.load()
+  expect(pool.result.value).toBe(cached)
+  expect(pool.loading.value).toBe(false)
+  reject(new Error('offline'))
+  await pending
+  expect(pool.result.value).toBe(cached)
+  expect(pool.error.value).toBe('loadFailed')
+})
+
+it('hides the previous account immediately even when refreshing the player list fails', async () => {
+  expect(pool.result.value).not.toBeNull()
+  environment.api.players.mockRejectedValue(new Error('temporarily unavailable'))
+  environment.league.summoner.me = { puuid: 'two' }
+  environment.league.isConnected = true
+  expect(pool.selected.value).toBe(JSON.stringify(['EUW1', 'two']))
+  expect(pool.result.value).toBeNull()
+  await flush()
+  expect(pool.player.value?.puuid).toBe('two')
 })

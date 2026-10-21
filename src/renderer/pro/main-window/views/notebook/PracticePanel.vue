@@ -6,9 +6,9 @@
         clearable
         :options="options"
         :placeholder="t('practiceState')"
-      /><NButton @click="load">{{ t('refresh') }}</NButton>
+      /><RefreshButton @click="load" />
     </div>
-    <NAlert v-if="error" type="error">{{ t('conflict') }}</NAlert>
+
     <NCard
       v-for="item in filtered"
       :key="item.entryId"
@@ -41,13 +41,21 @@
   </div>
 </template>
 <script setup lang="ts">
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
+import RefreshButton from '../../../shared/components/RefreshButton.vue'
 import { computed, ref, watch, onScopeDispose } from 'vue'
-import { NSelect, NButton, NAlert, NCard, NInput, NEmpty, NTag } from 'naive-ui'
+import { NSelect, NButton, NCard, NInput, NEmpty, NTag } from 'naive-ui'
 import { useTranslation } from 'i18next-vue'
 import { useInstance } from '@renderer-shared/shards'
 import type { PracticeEntry, NotebookEntry } from '@shared/pro/notebook'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
-const props = defineProps<{ championId: number | null; active: boolean }>(),
+const props = defineProps<{
+    championId: number | null
+    active: boolean
+    entryId?: string | null
+  }>(),
   emit = defineEmits<{ open: [NotebookEntry] }>(),
   api = useInstance(NotebookRenderer),
   { t } = useTranslation(undefined, { keyPrefix: 'pro.workshop' })
@@ -58,11 +66,22 @@ const entries = ref<PracticeEntry[]>([]),
 const options = computed(() =>
     ['pending', 'practicing', 'mastered'].map((value) => ({ value, label: t(`states.${value}`) }))
   ),
-  filtered = computed(() => entries.value.filter((e) => !filter.value || e.state === filter.value))
+  filtered = computed(() =>
+    entries.value.filter(
+      (e) =>
+        (!props.entryId || e.entryId === props.entryId) &&
+        (!filter.value || e.state === filter.value)
+    )
+  )
 let generation = 0
 const drafts = new Map<string, PracticeEntry>(),
   saved = new Map<string, string>()
 const signature = (entry: PracticeEntry) => JSON.stringify([entry.state, entry.notes])
+useQueryCache(
+  () => String(props.championId),
+  entries,
+  () => []
+)
 async function load() {
   const g = ++generation
   if (!props.active) return
@@ -109,6 +128,17 @@ async function save(item: PracticeEntry) {
     busy.value = false
   }
 }
-watch([() => props.championId, () => props.active], load, { immediate: true })
+watch(
+  () => props.entryId,
+  () => {
+    filter.value = null
+  }
+)
+watch([() => props.championId, () => props.active, () => props.entryId], load, { immediate: true })
 onScopeDispose(() => generation++)
+
+useRefreshFeedback(
+  () => error.value,
+  () => t('conflict')
+)
 </script>

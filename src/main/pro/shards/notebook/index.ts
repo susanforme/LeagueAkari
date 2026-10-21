@@ -11,11 +11,13 @@ import { registerNotebookHandlers } from './ipc-handlers'
 import { LoadoutController } from './loadout-controller'
 import { LoadoutPreferencesController } from './loadout-preferences-controller'
 import { NotebookController } from './notebook-controller'
+import { PracticeController } from './practice-controller'
 import { NotebookResourceLoader } from './resource-loader'
 
 @Shard(NotebookMain.id)
 export class NotebookMain implements IAkariShardInitDispose {
   static id = NOTEBOOK_NAMESPACE
+  private readonly _practice: PracticeController
   private readonly _controller: NotebookController
   private readonly _resources: NotebookResourceLoader
   private readonly _builds: BuildSyncController
@@ -28,8 +30,12 @@ export class NotebookMain implements IAkariShardInitDispose {
     loggerFactory: LoggerFactoryMain,
     private readonly _ipc: AkariIpcMain
   ) {
+    this._practice = new PracticeController(() => storage.dataSource)
     this._controller = new NotebookController(() => storage.dataSource)
-    this._resources = new NotebookResourceLoader(() => storage.dataSource)
+    this._resources = new NotebookResourceLoader(
+      () => storage.dataSource,
+      (key, failed) => this._ipc.sendEvent(NOTEBOOK_NAMESPACE, 'resources-changed', { key, failed })
+    )
     const logger = loggerFactory.create(NotebookMain.id)
     this._builds = new BuildSyncController(
       () => storage.dataSource,
@@ -54,7 +60,8 @@ export class NotebookMain implements IAkariShardInitDispose {
       this._controller,
       this._resources,
       this._builds,
-      this._loadouts
+      this._loadouts,
+      this._practice
     )
     if (this.storage.status === 'ready') {
       await this._loadoutPreferences.load()
@@ -67,6 +74,7 @@ export class NotebookMain implements IAkariShardInitDispose {
     await this._loadoutPreferences.dispose()
     await this._builds.dispose()
     await this._resources.dispose()
+    await this._practice.dispose()
     await this._controller.dispose()
   }
 }

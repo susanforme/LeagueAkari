@@ -4,6 +4,7 @@ import type { ResourceLocale } from '@shared/pro/champion-pool'
 import {
   type BuildApply,
   type ChangeNotebook,
+  type HandbookHome,
   NOTEBOOK_NAMESPACE,
   type NotebookBundle,
   type NotebookCatalog,
@@ -20,6 +21,17 @@ import {
   saveSchema
 } from '@shared/pro/notebook'
 import type {
+  ChampionGuide,
+  ChampionGuideInput,
+  ChampionInfo,
+  PracticePlan,
+  PracticeSession,
+  PracticeSessionPage,
+  RuneCatalog,
+  SavePracticePlan,
+  SavePracticeSession
+} from '@shared/pro/notebook/handbook'
+import type {
   CapturedLoadout,
   LoadoutApply,
   LoadoutPreferences,
@@ -31,6 +43,47 @@ import type {
 export class NotebookRenderer {
   static id = 'pro-notebook-renderer'
   constructor(@Dep(AkariIpcRenderer) private readonly _ipc: AkariIpcRenderer) {}
+  runes(locale: ResourceLocale) {
+    return this._ipc.call<RuneCatalog>(NOTEBOOK_NAMESPACE, 'runes', locale)
+  }
+  guide(id: number) {
+    return this._ipc.call<ChampionGuide | null>(NOTEBOOK_NAMESPACE, 'guide', id)
+  }
+  saveGuide(value: ChampionGuideInput) {
+    return this._ipc.call<void>(NOTEBOOK_NAMESPACE, 'saveGuide', value)
+  }
+  championInfo(locale: ResourceLocale, championId: number) {
+    return this._ipc.call<ChampionInfo>(NOTEBOOK_NAMESPACE, 'championInfo', { locale, championId })
+  }
+  positions(locale: ResourceLocale) {
+    return this._ipc.call<Record<string, string[]>>(NOTEBOOK_NAMESPACE, 'positions', locale)
+  }
+  practicePlans(championId: number | null, page = 1, search = '') {
+    return this._ipc.call<{ items: PracticePlan[]; total: number }>(
+      NOTEBOOK_NAMESPACE,
+      'practicePlans',
+      { championId, page, search }
+    )
+  }
+  practiceFromEntry(id: string) {
+    return this._ipc.call<PracticePlan>(NOTEBOOK_NAMESPACE, 'practiceFromEntry', id)
+  }
+  practicePlan(id: string) {
+    return this._ipc.call<PracticePlan>(NOTEBOOK_NAMESPACE, 'practicePlan', id)
+  }
+  savePracticePlan(value: SavePracticePlan) {
+    return this._ipc.call<PracticePlan>(NOTEBOOK_NAMESPACE, 'savePracticePlan', value)
+  }
+  recordPractice(value: SavePracticeSession) {
+    return this._ipc.call<PracticeSession>(NOTEBOOK_NAMESPACE, 'recordPractice', value)
+  }
+  practiceSessions(planId: string, days = 30, page = 1) {
+    return this._ipc.call<PracticeSessionPage>(NOTEBOOK_NAMESPACE, 'practiceSessions', {
+      planId,
+      days,
+      page
+    })
+  }
   loadoutPreferences() {
     return this._ipc.call<LoadoutPreferences>(NOTEBOOK_NAMESPACE, 'loadoutPreferences')
   }
@@ -51,6 +104,9 @@ export class NotebookRenderer {
   }
   applyLoadout(value: LoadoutApply) {
     return this._ipc.call<LoadoutStatus>(NOTEBOOK_NAMESPACE, 'applyLoadout', value)
+  }
+  onResourcesChanged(callback: (event: { key: string; failed: boolean }) => void) {
+    return this._ipc.onEventVue(NOTEBOOK_NAMESPACE, 'resources-changed', callback)
   }
   onChanged(callback: () => void) {
     return this._ipc.onEventVue(NOTEBOOK_NAMESPACE, 'entries-changed', callback)
@@ -84,6 +140,12 @@ export class NotebookRenderer {
   }
   setBuildRule(entryId: string, enabled: boolean) {
     return this._ipc.call<void>(NOTEBOOK_NAMESPACE, 'setBuildRule', { entryId, enabled })
+  }
+  home() {
+    return this._ipc.call<HandbookHome>(NOTEBOOK_NAMESPACE, 'home')
+  }
+  favoriteChampion(championId: number, favorite: boolean) {
+    return this._ipc.call<void>(NOTEBOOK_NAMESPACE, 'favoriteChampion', { championId, favorite })
   }
   champions() {
     return this._ipc.call<NotebookChampionSummary[]>(NOTEBOOK_NAMESPACE, 'champions')

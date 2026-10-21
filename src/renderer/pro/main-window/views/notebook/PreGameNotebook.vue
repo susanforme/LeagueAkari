@@ -14,15 +14,11 @@
           kind="champion"
           :placeholder="t('publicOpponents')"
         />
-        <NButton size="small" @click="load">{{ t('refresh') }}</NButton>
+        <RefreshButton @click="(load(), reload())" />
         <NCheckbox v-model:checked="compact">{{ briefT('title') }}</NCheckbox>
       </div>
-      <NAlert v-if="error" type="error">{{ t('loadFailed') }}</NAlert>
-      <NAlert v-if="unavailable" type="warning"
-        >{{ t('resourcesUnavailable') }}
-        <NButton text @click="reload">{{ t('retry') }}</NButton></NAlert
-      >
-      <NSpin :show="loading">
+
+      <NSpin :show="loading && !result">
         <div class="flex flex-col gap-3">
           <NCard
             v-for="entry in result?.items"
@@ -48,12 +44,16 @@
   </div>
 </template>
 <script setup lang="ts">
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
+import RefreshButton from '../../../shared/components/RefreshButton.vue'
 import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
 import { useInstance } from '@renderer-shared/shards'
 import { useLeagueClientStore } from '@renderer-shared/shards/league-client/store'
 import { listSchema, type NotebookPage } from '@shared/pro/notebook'
 import { useTranslation } from 'i18next-vue'
-import { NAlert, NButton, NCard, NEmpty, NPagination, NSpin, NTag, NCheckbox } from 'naive-ui'
+import { NAlert, NCard, NEmpty, NPagination, NSpin, NTag, NCheckbox } from 'naive-ui'
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
 import EntitySelect from './EntitySelect.vue'
@@ -90,16 +90,19 @@ watch(
     generation++
     opponent.value = null
     page.value = 1
-    result.value = null
   },
   { flush: 'sync' }
 )
 watch(opponent, () => {
   page.value = 1
 })
+useQueryCache(
+  () => JSON.stringify([identity.value, opponent.value, page.value]),
+  result,
+  () => null
+)
 async function load() {
   const current = ++generation
-  result.value = null
   error.value = false
   loading.value = false
   if (!context.value) return
@@ -123,4 +126,8 @@ watch([identity, opponent, page], load, { immediate: true })
 onScopeDispose(() => {
   generation++
 })
+useRefreshFeedback(
+  () => error.value || unavailable.value,
+  () => t(unavailable.value ? 'resourcesUnavailable' : 'loadFailed')
+)
 </script>

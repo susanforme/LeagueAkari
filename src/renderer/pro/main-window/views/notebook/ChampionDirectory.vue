@@ -28,6 +28,11 @@
           >
           <span
             class="text-xs"
+            :class="champion.summary?.total ? 'text-(--la-color-text-primary)' : 'opacity-60'"
+            >{{ th(champion.summary?.total ? 'added' : 'add') }}</span
+          >
+          <span
+            class="text-xs"
             :class="champion.summary?.total ? 'text-(--la-color-text-primary)' : 'opacity-50'"
             >{{ t('entryCount', { count: champion.summary?.total ?? 0 }) }}</span
           >
@@ -59,6 +64,7 @@ const props = defineProps<{
 }>()
 defineEmits<{ select: [id: number] }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.notebook' })
+const { t: th } = useTranslation(undefined, { keyPrefix: 'pro.handbook' })
 const search = ref('')
 const recordedOnly = ref(false)
 const sort = ref('recent')

@@ -33,6 +33,72 @@ describe.runIf(!!process.versions.electron)('notebook persistence', () => {
     if (source.isInitialized) await source.destroy()
     await rm(directory, { recursive: true, force: true })
   })
+  it('aggregates real handbook content, excludes trash and searches across champions in edit order', async () => {
+    const old = await controller.save({
+      id: null,
+      expectedRevision: 0,
+      content: { ...content(), pinned: true, position: 'MIDDLE' }
+    })
+    const recent = await controller.save({
+      id: null,
+      expectedRevision: 0,
+      content: { ...content(), championId: 238, title: 'Wave management', tags: ['trade'] }
+    })
+    const removed = await controller.save({
+      id: null,
+      expectedRevision: 0,
+      content: { ...content(), championId: 64, position: 'JUNGLE' }
+    })
+    await source.query('UPDATE NotebookEntries SET updatedAt=? WHERE id=?', [
+      Date.now() - 10 * 86400000,
+      old.id
+    ])
+    for (const entry of [old, recent, removed])
+      await controller.savePractice({
+        entryId: entry.id,
+        expectedRevision: 0,
+        sourceRevision: 1,
+        state: 'pending',
+        notes: ''
+      })
+    await controller.change({ id: removed.id, expectedRevision: 1, action: 'trash' })
+    await controller.favoriteChampion(103, true)
+    const home = await controller.home()
+    expect(home.updated).toBe(1)
+    expect(home.practice).toEqual({ pending: 2, practicing: 0, mastered: 0, paused: 0 })
+    expect(home.upcoming.map((p) => p.id).sort()).toEqual([old.id, recent.id].sort())
+    expect(home.champions.find((c) => c.championId === 103)).toMatchObject({
+      favorite: true,
+      positions: ['MIDDLE'],
+      total: 1,
+      note: 1
+    })
+    expect(home.champions.find((c) => c.championId === 64)).toMatchObject({
+      total: 0,
+      positions: []
+    })
+    expect(
+      (await controller.list(listSchema.parse({ order: 'recent' }))).items.map((e) => e.id)
+    ).toEqual([recent.id, old.id])
+    expect(
+      (await controller.list(listSchema.parse({ search: 'Ahri', searchChampionIds: [238] }))).total
+    ).toBe(2)
+    expect((await controller.list(listSchema.parse({ search: 'trade' }))).items[0].id).toBe(
+      recent.id
+    )
+    expect(
+      (await controller.list(listSchema.parse({ updatedSince: Date.now() - 86400000 }))).total
+    ).toBe(1)
+    await source.destroy()
+    await initializeProDatabase(source)
+    expect((await controller.home()).champions.find((c) => c.championId === 103)?.favorite).toBe(
+      true
+    )
+    await controller.favoriteChampion(103, false)
+    expect((await controller.home()).champions.find((c) => c.championId === 103)?.favorite).toBe(
+      false
+    )
+  })
   it('retains revisions, restores as a new revision, and rejects competing saves', async () => {
     const first = await controller.save({ id: null, expectedRevision: 0, content: content() })
     const request = {

@@ -4,18 +4,27 @@ import {
   NOTEBOOK_NAMESPACE,
   buildApplySchema,
   changeSchema,
+  favoriteChampionSchema,
   historySchema,
   listSchema,
   practiceSchema,
   saveSchema,
   transferSchema
 } from '@shared/pro/notebook'
+import {
+  championGuideSchema,
+  practiceQuerySchema,
+  savePracticePlanSchema,
+  savePracticeSessionSchema,
+  sessionQuerySchema
+} from '@shared/pro/notebook/handbook'
 import { loadoutApplySchema, loadoutPreferencesSchema } from '@shared/pro/notebook/loadout'
 import { z } from 'zod'
 
 import { BuildSyncController, clientItemSet } from './build-sync-controller'
 import type { LoadoutController } from './loadout-controller'
 import type { NotebookController } from './notebook-controller'
+import type { PracticeController } from './practice-controller'
 import type { NotebookResourceLoader } from './resource-loader'
 import { MAX_NOTEBOOK_BYTES, readNotebookFile, saveNotebookFile } from './transfer-files'
 
@@ -24,8 +33,55 @@ export function registerNotebookHandlers(
   controller: NotebookController,
   resources: NotebookResourceLoader,
   builds: BuildSyncController,
-  loadouts: LoadoutController
+  loadouts: LoadoutController,
+  practice: PracticeController
 ) {
+  const changed = async <T>(operation: Promise<T>) => {
+    const result = await operation
+    ipc.sendEvent(NOTEBOOK_NAMESPACE, 'entries-changed')
+    return result
+  }
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'guide', (_, id) =>
+    controller.guide(z.number().int().positive().parse(id))
+  )
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'saveGuide', (_, value) =>
+    changed(controller.saveGuide(championGuideSchema.parse(value)))
+  )
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'practicePlans', (_, value) => {
+    const q = practiceQuerySchema.parse(value)
+    return practice.list(q.championId, q.page, q.search)
+  })
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'practiceFromEntry', (_, id) =>
+    changed(practice.fromEntry(z.string().uuid().parse(id)))
+  )
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'practicePlan', (_, id) =>
+    practice.get(z.string().uuid().parse(id))
+  )
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'savePracticePlan', (_, value) =>
+    changed(practice.save(savePracticePlanSchema.parse(value)))
+  )
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'recordPractice', (_, value) =>
+    changed(practice.record(savePracticeSessionSchema.parse(value)))
+  )
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'practiceSessions', (_, value) => {
+    const q = sessionQuerySchema.parse(value)
+    return practice.sessions(q.planId, q.days, q.page)
+  })
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'runes', (_, locale) =>
+    resources.runes(resourceLocaleSchema.parse(locale))
+  )
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'positions', (_, locale) =>
+    resources.positions(resourceLocaleSchema.parse(locale))
+  )
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'championInfo', (_, value) => {
+    const q = z
+      .object({
+        locale: resourceLocaleSchema,
+        championId: z.number().int().positive().max(1000000)
+      })
+      .parse(value)
+    return resources.championInfo(q.locale, q.championId)
+  })
   ipc.onCall(NOTEBOOK_NAMESPACE, 'loadoutPreferences', () => loadouts.preferences())
   ipc.onCall(NOTEBOOK_NAMESPACE, 'saveLoadoutPreferences', (_, value) =>
     loadouts.savePreferences(loadoutPreferencesSchema.parse(value))
@@ -76,6 +132,12 @@ export function registerNotebookHandlers(
   ipc.onCall(NOTEBOOK_NAMESPACE, 'setBuildRule', (_, request) => {
     const value = z.object({ entryId: z.string().uuid(), enabled: z.boolean() }).parse(request)
     return builds.setRule(value.entryId, value.enabled)
+  })
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'home', () => controller.home())
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'favoriteChampion', async (_, request) => {
+    const value = favoriteChampionSchema.parse(request)
+    await controller.favoriteChampion(value.championId, value.favorite)
+    ipc.sendEvent(NOTEBOOK_NAMESPACE, 'entries-changed')
   })
   ipc.onCall(NOTEBOOK_NAMESPACE, 'champions', () => controller.champions())
   ipc.onCall(NOTEBOOK_NAMESPACE, 'list', (_, query) => controller.list(listSchema.parse(query)))

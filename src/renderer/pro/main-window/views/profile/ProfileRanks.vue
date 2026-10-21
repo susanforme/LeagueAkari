@@ -45,20 +45,19 @@
             t('dashboard.viewHistory')
           }}</NButton>
         </div>
-        <NSpin :show="loading">
+        <NSpin :show="loading && !trends.length">
           <RankHistoryChart
             v-if="trends[index]?.points.length"
             compact
             :trend="trends[index]!"
             :selected="null"
             :rank-label="rankLabel"
-            :change-label="() => ''"
             :color="index === 0 ? '#8d80db' : '#2ba580'"
             @select="$emit('history', queue)"
           />
           <div v-else class="rank-chart-empty profile-muted">
             {{ failed ? t('failed') : t('noSeasonRecords') }}
-            <NButton v-if="failed" text size="tiny" @click="load">{{ t('refresh') }}</NButton>
+            <RefreshButton v-if="failed" text @click="load" />
           </div>
         </NSpin>
         <div class="rank-peaks">
@@ -90,6 +89,10 @@
   </div>
 </template>
 <script setup lang="ts">
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
+import RefreshButton from '../../../shared/components/RefreshButton.vue'
 import IronEmblem from '@renderer-shared/assets/ranked-icons-large/iron.png'
 import BronzeEmblem from '@renderer-shared/assets/ranked-icons-large/bronze.png'
 import SilverEmblem from '@renderer-shared/assets/ranked-icons-large/silver.png'
@@ -161,6 +164,11 @@ const loading = ref(false),
   failed = ref(false)
 let active = false,
   generation = 0
+useQueryCache(
+  () => JSON.stringify([props.player.serverId, props.player.puuid]),
+  trends,
+  () => []
+)
 async function load() {
   if (!active) return
   const current = ++generation
@@ -180,13 +188,9 @@ async function load() {
     if (current === generation) loading.value = false
   }
 }
-watch(
-  () => [props.player.serverId, props.player.puuid],
-  () => {
-    trends.value = []
-    void load()
-  }
-)
+watch([() => props.player.serverId, () => props.player.puuid], () => {
+  void load()
+})
 watch(() => props.refreshToken, load)
 function activate() {
   if (!active) {
@@ -202,6 +206,10 @@ onMounted(activate)
 onActivated(activate)
 onDeactivated(deactivate)
 onScopeDispose(deactivate)
+useRefreshFeedback(
+  () => failed.value,
+  () => t('failed')
+)
 </script>
 <style scoped>
 .rank-grid {

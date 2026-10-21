@@ -36,15 +36,43 @@ describe.runIf(!!process.versions.electron)('pro backups', () => {
     await database.query("INSERT INTO NotebookLoadoutState VALUES ('preferences', ?)", [
       JSON.stringify({ flashSlot: 'D', forceFlash: true })
     ])
+    await database.query('INSERT INTO NotebookFavorites VALUES (103)')
+    await database.query('INSERT INTO HandbookChampions VALUES (103,1,1,?)', [
+      JSON.stringify({ summary: 'My guide' })
+    ])
+    await database.query('INSERT INTO PracticePlans VALUES (?,?,?,?,?)', [
+      'plan',
+      103,
+      1,
+      1,
+      JSON.stringify({ title: 'Practice' })
+    ])
+    await database.query('INSERT INTO PracticeSessions VALUES (?,?,?,?)', [
+      'session',
+      'plan',
+      1,
+      JSON.stringify({ durationSeconds: 600 })
+    ])
     await backups.exportFile()
+    await database.query('DELETE FROM NotebookFavorites')
+    for (const table of ['HandbookChampions', 'PracticePlans', 'PracticeSessions'])
+      await database.query(`DELETE FROM ${table}`)
     await database.query("UPDATE PoolPlayers SET name='After'")
     await database.query('DELETE FROM NotebookLoadoutState')
     const preview = await backups.prepareFile()
-    expect(preview).toMatchObject({ version: 8, entries: 0, matches: 0 })
+    expect(preview).toMatchObject({ version: 10, entries: 0, matches: 0 })
     await backups.stage(preview!.token)
     expect((await database.query('SELECT name FROM PoolPlayers'))[0].name).toBe('After')
     await backups.applyPending()
     expect((await database.query('SELECT name FROM PoolPlayers'))[0].name).toBe('Before')
+    expect(await database.query('SELECT * FROM NotebookFavorites')).toEqual([{ championId: 103 }])
+    expect(await database.query('SELECT championId FROM HandbookChampions')).toEqual([
+      { championId: 103 }
+    ])
+    expect(await database.query('SELECT id FROM PracticePlans')).toEqual([{ id: 'plan' }])
+    expect(await database.query('SELECT planId FROM PracticeSessions')).toEqual([
+      { planId: 'plan' }
+    ])
     expect(
       JSON.parse(
         (
@@ -95,7 +123,11 @@ describe.runIf(!!process.versions.electron)('pro backups', () => {
     const legacy = new DataSource({ type: 'better-sqlite3', database: legacyPath })
     await legacy.initialize()
     await legacy.query('DROP TABLE ExperiencePlans')
+    await legacy.query('DROP TABLE NotebookFavorites')
     await legacy.query('DROP TABLE NotebookLoadoutState')
+    await legacy.query('DROP TABLE IF EXISTS HandbookChampions')
+    await legacy.query('DROP TABLE IF EXISTS PracticePlans')
+    await legacy.query('DROP TABLE IF EXISTS PracticeSessions')
     await legacy.query('PRAGMA user_version=6')
     await legacy.destroy()
     dialogs.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [legacyPath] })
@@ -104,7 +136,7 @@ describe.runIf(!!process.versions.electron)('pro backups', () => {
     await backups.stage(old!.token)
     await backups.applyPending()
     expect(await database.query('SELECT * FROM ExperiencePlans')).toEqual([])
-    expect((await database.query('PRAGMA user_version'))[0].user_version).toBe(8)
+    expect((await database.query('PRAGMA user_version'))[0].user_version).toBe(10)
   })
   it('rejects corrupt, newer, and foreign schemas without replacing current data', async () => {
     await writeFile(path, 'broken')
@@ -117,12 +149,15 @@ describe.runIf(!!process.versions.electron)('pro backups', () => {
     await foreign.destroy()
     await expect(backups.prepareFile()).rejects.toThrow('version')
     await foreign.initialize()
+    await foreign.query('DROP TABLE IF EXISTS HandbookChampions')
+    await foreign.query('DROP TABLE IF EXISTS PracticePlans')
+    await foreign.query('DROP TABLE IF EXISTS PracticeSessions')
     await foreign.query('PRAGMA user_version=5')
     await foreign.query(
       'CREATE TRIGGER bad AFTER INSERT ON PoolPlayers BEGIN DELETE FROM PoolPlayers; END'
     )
     await foreign.destroy()
     await expect(backups.prepareFile()).rejects.toThrow('schema')
-    expect((await database.query('PRAGMA user_version'))[0].user_version).toBe(8)
+    expect((await database.query('PRAGMA user_version'))[0].user_version).toBe(10)
   })
 })

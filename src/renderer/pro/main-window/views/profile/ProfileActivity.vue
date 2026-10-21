@@ -2,13 +2,14 @@
   <section class="profile-panel activity-panel">
     <div class="activity-heading">
       <h2 class="profile-section-title">{{ t('activity.title') }}</h2>
-      <NButton text size="small" @click="openHistory"
-        >{{ t('activity.openHistory') }} <NIcon :component="ArrowRight20Regular" class="ml-1"
-      /></NButton>
+      <NRadioGroup v-model:value="queue" size="small" :aria-label="t('dashboard.queue')">
+        <NRadioButton :value="0">{{ t('rankedAll') }}</NRadioButton>
+        <NRadioButton :value="420">{{ commonT('queueTypes.RANKED_SOLO_5x5') }}</NRadioButton>
+        <NRadioButton :value="440">{{ commonT('queueTypes.RANKED_FLEX_SR') }}</NRadioButton>
+      </NRadioGroup>
     </div>
-    <NSpin :show="loading">
-      <NAlert v-if="failed" type="warning">{{ t('failed') }}</NAlert>
-      <template v-else-if="activity">
+    <NSpin :show="loading && !activity">
+      <template v-if="activity">
         <div class="activity-grid">
           <div class="activity-metrics">
             <NButton
@@ -16,7 +17,7 @@
               :key="metric.key"
               text
               class="metric"
-              @click="$emit('period', activity.from, activity.to)"
+              @click="$emit('period', activity.from, activity.to, queue)"
             >
               <div class="metric-content">
                 <div class="metric-label profile-muted">
@@ -47,9 +48,6 @@
                 :aria-label="t('dashboard.dailyWinRate')"
               />
             </div>
-            <NButton text size="tiny" @click="$emit('period', activity.from, activity.to)">{{
-              t('dashboard.viewMatches')
-            }}</NButton>
           </div>
           <ActivityHeatmap v-if="activity.days.length" :days="activity.days" @select="selectDay" />
         </div>
@@ -71,7 +69,7 @@
         }}</NAlert>
       </template>
       <NEmpty
-        v-if="!loading && !failed && activity && !activity.month.games"
+        v-if="activity && !activity.month.games"
         class="mt-4"
         :description="t('activity.empty')"
         ><template #extra
@@ -84,11 +82,23 @@
   </section>
 </template>
 <script setup lang="ts">
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
 import { useInstance } from '@renderer-shared/shards'
 import { CHAMPION_POOL_ROUTE, type PlayerIdentity } from '@shared/pro/champion-pool'
 import type { ActivityPeriod, ProfileActivity } from '@shared/pro/profile'
 import { useTranslation } from 'i18next-vue'
-import { NAlert, NButton, NEmpty, NIcon, NSpin, useThemeVars } from 'naive-ui'
+import {
+  NAlert,
+  NButton,
+  NEmpty,
+  NIcon,
+  NSpin,
+  NRadioGroup,
+  NRadioButton,
+  useThemeVars
+} from 'naive-ui'
 import {
   computed,
   onActivated,
@@ -104,7 +114,6 @@ import { ChampionPoolRenderer } from '../../../shared/shards/champion-pool'
 import { ProfileRenderer } from '../../../shared/shards/profile'
 import ActivityHeatmap from './ActivityHeatmap.vue'
 import {
-  ArrowRight20Regular,
   Games24Regular,
   CalendarLtr24Regular,
   Clock24Regular,
@@ -123,7 +132,9 @@ import { Line } from 'vue-chartjs'
 import { activityChanges } from './activity-comparison'
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip)
 
-const emit = defineEmits<{ period: [from: number, to: number] }>()
+const emit = defineEmits<{ period: [from: number, to: number, queue: number] }>()
+const queue = ref(0)
+const { t: commonT } = useTranslation('common')
 const theme = useThemeVars()
 const props = defineProps<{ player: PlayerIdentity; refreshToken: number }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.profile' })
@@ -212,21 +223,24 @@ const winRateOptions = computed<ChartOptions<'line'>>(() => ({
 function selectDay(from: number) {
   const end = new Date(from)
   end.setDate(end.getDate() + 1)
-  emit('period', from, end.getTime())
+  emit('period', from, end.getTime(), queue.value)
 }
-function openHistory() {
-  void router.push({
-    name: 'player-tabs',
-    params: { sgpServerId: props.player.serverId, puuid: props.player.puuid }
-  })
-}
+useQueryCache(
+  () => JSON.stringify([props.player.serverId, props.player.puuid, queue.value]),
+  activity,
+  () => null
+)
 async function load() {
   if (!active) return
   const current = ++generation
   loading.value = true
   failed.value = false
   try {
-    const next = await api.activity({ serverId: props.player.serverId, puuid: props.player.puuid })
+    const next = await api.activity({
+      serverId: props.player.serverId,
+      puuid: props.player.puuid,
+      queueIds: queue.value === 420 ? [420] : queue.value === 440 ? [440] : [420, 440]
+    })
     if (generation === current) activity.value = next
   } catch {
     if (generation === current) failed.value = true
@@ -235,13 +249,13 @@ async function load() {
   }
 }
 watch(
-  () => [props.player.serverId, props.player.puuid, props.refreshToken],
+  [() => props.player.serverId, () => props.player.puuid],
   () => {
-    activity.value = null
     void load()
   },
   { flush: 'sync' }
 )
+watch([() => props.refreshToken, queue], load)
 pool.onChanged(() => {
   if (active) void load()
 })
@@ -258,6 +272,10 @@ onMounted(activate)
 onActivated(activate)
 onDeactivated(deactivate)
 onScopeDispose(deactivate)
+useRefreshFeedback(
+  () => failed.value,
+  () => t('failed')
+)
 </script>
 
 <style scoped>

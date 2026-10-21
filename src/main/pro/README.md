@@ -147,3 +147,18 @@ renderer 测试验证旧请求不能覆盖新玩家、页面停用后停止轮�
 - 编辑打法时可读取选人阶段当前英雄的符文、技能及适用装备方案，预览并选择装备方案后填入草稿；仍由原保存按钮持久化，未读取到的部分与未选择的装备保留原草稿。
 - 设置 → Pro → 打法配置支持不调整 / D 闪 / F 闪。应用方案时排列闪现位置；强制修正默认关闭，开启后即使未应用手册方案也会在已选英雄的选人阶段每三秒核对、交换 D/F。只移动已有闪现，不补闪现、不改变另一项技能，写前再次核对技能及上下文。
 - 定制库版本 8 添加 NotebookLoadoutState，保存偏好与上次成功方案；旧库事务升级，备份支持旧版本 4–7 升级恢复。恢复后关闭闪现强制修正，保留 D/F 偏好与方案记忆。真实客户端并发操作仍不能保证条件写入。
+
+### 个人手册首页
+
+- `NotebookController.home` 汇总有效条目的英雄、内容类型、已记录分路、最近 7 天更新数和训练状态；最近活动使用按更新时间排序的分页查询，搜索支持内容、标签和匹配的英雄。
+- 定制库版本 9 新增 `NotebookFavorites`，收藏与条目置顶独立保存，随完整备份恢复；首页仅显示有有效内容的英雄，完整英雄库和首条内容创建通过次级入口访问。
+
+### Handbook workspace (schema v10)
+
+`HandbookChampions` stores explicit membership and personal overview revisions. `PracticePlans`
+and `PracticeSessions` store editable goals/steps and manually reported results. Legacy linked
+practice entries migrate without inventing historical results; full Pro database backups include
+all three tables. Notebook JSON transfers continue to transfer knowledge entries only.
+Champion traits, official skills and map-11 recommended positions use the existing resource cache.
+Pre-game lookup reads account-scoped cached solo/duo matchups and personal ratings; no global
+win-rate estimates or generated threat curves are presented as game data.

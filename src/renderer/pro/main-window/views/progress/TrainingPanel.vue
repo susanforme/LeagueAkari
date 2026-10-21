@@ -1,9 +1,9 @@
 <template>
   <div class="flex flex-col gap-3">
     <div class="flex justify-end">
-      <NButton @click="load">{{ t('refresh') }}</NButton>
+      <RefreshButton @click="load" />
     </div>
-    <NAlert v-if="error" type="error">{{ t('failed') }}</NAlert>
+
     <NCard v-for="goal in result?.items" :key="goal.id" size="small" :title="goal.title">
       <template #header-extra
         ><NTag>{{ t(`states.${goal.state}`) }}</NTag></template
@@ -73,10 +73,13 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch, onMounted, onScopeDispose } from 'vue'
+import { useQueryCache } from '../../../shared/composables/query-cache'
+
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
+import RefreshButton from '../../../shared/components/RefreshButton.vue'
+import { computed, ref, shallowRef, watch, onActivated, onDeactivated, onScopeDispose } from 'vue'
 import {
   NButton,
-  NAlert,
   NCard,
   NTag,
   NEmpty,
@@ -117,6 +120,11 @@ const result = shallowRef<{ items: TrainingGoal[]; total: number } | null>(null)
   progress = shallowRef<GoalProgress | null>(null)
 let generation = 0,
   detailGeneration = 0
+useQueryCache(
+  () => String(page.value),
+  result,
+  () => null
+)
 async function load() {
   const g = ++generation
   error.value = false
@@ -216,9 +224,16 @@ const chartOptions = computed<ChartOptions<'line'>>(() => {
   }
 })
 watch(page, load)
-onMounted(load)
+onActivated(load)
+onDeactivated(() => {
+  generation++
+})
 onScopeDispose(() => {
   generation++
   detailGeneration++
 })
+useRefreshFeedback(
+  () => error.value,
+  () => t('failed')
+)
 </script>

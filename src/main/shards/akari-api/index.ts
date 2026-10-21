@@ -1,3 +1,4 @@
+import { loadProRelease } from '@main/pro/update/release-loader'
 import { IAkariShardInitDispose, Shard } from '@shared/akari-shard'
 import type { AkariApiLanguage } from '@shared/shards/akari-api'
 
@@ -64,7 +65,9 @@ export class AkariApiMain implements IAkariShardInitDispose {
     }
     this._configLoader = new AkariApiConfigLoader(this._context)
     this._noticeLoader = new AkariApiNoticeLoader(this._context)
-    this._releaseLoader = new AkariApiReleaseLoader(this._context)
+    this._releaseLoader = new AkariApiReleaseLoader(this._context, () =>
+      loadProRelease(this._context)
+    )
   }
 
   async onInit() {

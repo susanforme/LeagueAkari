@@ -393,7 +393,7 @@ export class ExperienceController {
   }
   async social(player: PlayerIdentity): Promise<SocialSummary> {
     const rows: { projection: string; summary: string }[] = await this._database.query(
-      'SELECT projection,summary FROM PoolMatches WHERE serverId=? AND puuid=? ORDER BY startedAt DESC LIMIT ?',
+      "SELECT projection,summary FROM PoolMatches WHERE serverId=? AND puuid=? AND json_extract(projection, '$.queueId') IN (420, 440) ORDER BY startedAt DESC LIMIT ?",
       [player.serverId, player.puuid, MAX_CACHED_ANALYSIS + 1]
     )
     const games: CachedGame[] = rows

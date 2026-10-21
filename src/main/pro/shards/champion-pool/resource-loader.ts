@@ -21,7 +21,11 @@ export class ResourceLoader {
   private readonly _requests = new Map<ResourceLocale, Promise<ResourceCatalog>>()
   private readonly _abort = new AbortController()
 
-  constructor(private readonly _context: ChampionPoolContext) {}
+  private readonly _refreshes = new Map<ResourceLocale, Promise<ResourceCatalog>>()
+  constructor(
+    private readonly _context: ChampionPoolContext,
+    private readonly _changed: (locale: ResourceLocale, failed: boolean) => void = () => {}
+  ) {}
 
   get(locale: ResourceLocale) {
     const pending = this._requests.get(locale)
@@ -34,6 +38,7 @@ export class ResourceLoader {
   async dispose() {
     this._abort.abort()
     await Promise.allSettled(this._requests.values())
+    await Promise.allSettled(this._refreshes.values())
   }
 
   private async _load(locale: ResourceLocale): Promise<ResourceCatalog> {
@@ -53,7 +58,20 @@ export class ResourceLoader {
       }
     }
     if (previous?.championSearch && Date.now() - cached.updatedAt < 86_400_000) return previous
-    try {
+    if (previous) {
+      void this._refresh(locale).catch(() => {
+        if (!this._abort.signal.aborted) this._changed(locale, true)
+      })
+      return previous
+    }
+    return this._refresh(locale)
+  }
+
+  private _refresh(locale: ResourceLocale): Promise<ResourceCatalog> {
+    const pending = this._refreshes.get(locale)
+    if (pending) return pending
+    const request = (async () => {
+      const database = this._context.storage.dataSource
       const language = locale === 'zh-CN' ? 'zh_cn' : 'default'
       const load = async (file: string) => {
         const response = await fetch(`${base}/${language}/v1/${file}`, {
@@ -81,10 +99,10 @@ export class ResourceLoader {
         'INSERT INTO PoolResources VALUES (?, ?, ?) ON CONFLICT(locale) DO UPDATE SET catalog = excluded.catalog, updatedAt = excluded.updatedAt',
         [locale, JSON.stringify(catalog), Date.now()]
       )
+      this._changed(locale, false)
       return catalog
-    } catch (error) {
-      if (previous) return previous
-      throw error
-    }
+    })().finally(() => this._refreshes.delete(locale))
+    this._refreshes.set(locale, request)
+    return request
   }
 }

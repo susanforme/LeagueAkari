@@ -2,7 +2,10 @@ import { useInstance } from '@renderer-shared/shards'
 import type { Insights } from '@shared/pro/progress'
 import { type Ref, onActivated, onDeactivated, onScopeDispose, ref, shallowRef, watch } from 'vue'
 
+import { useQueryCache } from '../../../shared/composables/query-cache'
 import { ProgressRenderer } from '../../../shared/shards/progress'
+
+const snapshots = new Map<string, Insights | null>()
 
 export function usePersonalBaseline(reportId: Ref<string>, allChampions: Ref<boolean>) {
   const api = useInstance(ProgressRenderer)
@@ -12,12 +15,17 @@ export function usePersonalBaseline(reportId: Ref<string>, allChampions: Ref<boo
   let generation = 0
   let active = true
 
+  useQueryCache(
+    () => JSON.stringify([reportId.value, allChampions.value]),
+    insights,
+    () => null,
+    snapshots
+  )
   async function load() {
     if (!active) return
     const current = ++generation
     loading.value = true
     error.value = false
-    insights.value = null
     try {
       const next = await api.insights(reportId.value, allChampions.value)
       if (current === generation) insights.value = next

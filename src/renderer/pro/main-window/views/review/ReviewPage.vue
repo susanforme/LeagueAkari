@@ -9,16 +9,11 @@
       <NButton v-if="report" size="small" @click="router.push({ name: REVIEW_ROUTE })">{{
         t('library')
       }}</NButton>
-      <NButton v-if="report && !comparison" size="small" :loading="loading" @click="refresh">{{
-        t('refresh')
-      }}</NButton>
+      <RefreshButton v-if="report && !comparison" @click="refresh" />
     </div>
     <NScrollbar class="min-h-0 flex-1">
       <div class="flex flex-col gap-4 p-6">
-        <NAlert v-if="error" type="error"
-          >{{ t('loadFailed') }} <NButton text @click="load">{{ t('retry') }}</NButton></NAlert
-        >
-        <NSpin :show="loading">
+        <NSpin :show="loading && (isReport ? !report : !library)">
           <template v-if="report">
             <ReviewFindings
               v-if="!comparison"
@@ -86,7 +81,7 @@
               </NTabs>
             </div>
           </template>
-          <template v-else>
+          <template v-else-if="!isReport">
             <NAlert type="info" class="mb-4">{{ t('libraryHelp') }}</NAlert>
             <div class="mb-3 flex items-center justify-between gap-3">
               <NButton size="small" :disabled="selected.length !== 2" @click="compareSelected">{{
@@ -124,6 +119,9 @@
   </div>
 </template>
 <script setup lang="ts">
+import { useQueryCache } from '../../../shared/composables/query-cache'
+import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedback'
+import RefreshButton from '../../../shared/components/RefreshButton.vue'
 import MatchShare from '../../../shared/components/share-card/MatchShare.vue'
 import MatchCard from '@renderer-shared/components/match-card/MatchCard.vue'
 import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
@@ -235,17 +233,34 @@ function compareSelected() {
     query: { id: selected.value[0], compare: selected.value[1] }
   })
 }
+const isReport = computed(() => !!(route.query.id || route.query.gameId))
 let loadedContext = ''
+const contextKey = () =>
+  route.name === REVIEW_ROUTE
+    ? JSON.stringify([
+        route.query.id,
+        route.query.serverId,
+        route.query.puuid,
+        route.query.gameId,
+        route.query.compare
+      ])
+    : loadedContext
+const reportCache = useQueryCache(contextKey, report, () => null)
+useQueryCache(contextKey, comparison, () => null)
+useQueryCache(contextKey, baseline, () => null)
+useQueryCache(
+  () => String(page.value),
+  library,
+  () => null
+)
 async function load() {
   if (!active || route.name !== REVIEW_ROUTE) return
   const current = ++generation
   loading.value = true
   error.value = false
-  const context = JSON.stringify(route.query)
-  if (context !== loadedContext) {
-    report.value = null
-    comparison.value = null
-    baseline.value = null
+  const context = contextKey()
+  const changed = context !== loadedContext
+  if (changed) {
     focusWindow.value = undefined
     loadedContext = context
   }
@@ -265,15 +280,17 @@ async function load() {
             (event) =>
               event.type === 'CHAMPION_KILL' && event.victimId === value.analysis.participantId
           )?.timestamp ?? 0
-        focus.value =
-          query.time === undefined
-            ? firstDeath(next)
-            : Math.max(0, Math.min(next.analysis.duration, Number(query.time) || 0))
-        compareFocus.value = second
-          ? query.time === undefined
-            ? firstDeath(second)
-            : Math.max(0, Math.min(second.analysis.duration, Number(query.time) || 0))
-          : 0
+        if (changed || route.query.time !== undefined) {
+          focus.value =
+            query.time === undefined
+              ? firstDeath(next)
+              : Math.max(0, Math.min(next.analysis.duration, Number(query.time) || 0))
+          compareFocus.value = second
+            ? query.time === undefined
+              ? firstDeath(second)
+              : Math.max(0, Math.min(second.analysis.duration, Number(query.time) || 0))
+            : 0
+        }
       }
     } else {
       const next = await api.list(page.value)
@@ -297,8 +314,10 @@ async function refresh() {
       refresh: true
     })
     if (current === generation) {
-      if (next.id !== report.value?.id)
+      if (next.id !== report.value?.id) {
+        reportCache.set(JSON.stringify([next.id, undefined, undefined, undefined, undefined]), next)
         await router.replace({ name: REVIEW_ROUTE, query: { id: next.id } })
+      } else report.value = next
     }
   } catch {
     if (current === generation) error.value = true
@@ -319,5 +338,9 @@ useWorkspaceState(
   'pro-review',
   { page, tab },
   z.object({ page: z.number().int().positive(), tab: z.enum(['events', 'details']) })
+)
+useRefreshFeedback(
+  () => error.value,
+  () => t('loadFailed')
 )
 </script>
