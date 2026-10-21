@@ -1,5 +1,10 @@
 <template>
   <div class="mt-3 flex flex-col gap-3">
+    <LoadoutPanel
+      v-if="entry.content.kind === 'build' && (entry.content.runes || entry.content.spells)"
+      :key="entry.id"
+      :entry="entry"
+    />
     <div class="flex flex-wrap items-center gap-2">
       <NTag v-for="tag in entry.content.tags" :key="tag" size="small">{{ tag }}</NTag>
       <NTag v-if="entry.content.confirmedPatch" size="small">{{
@@ -21,7 +26,9 @@
         >{{ t('confirmPatch') }}</NButton
       >
       <NButton size="tiny" :disabled="busy" @click="practice">{{ t('addPractice') }}</NButton>
-      <template v-if="entry.content.kind === 'build'">
+      <template
+        v-if="entry.content.kind === 'build' && entry.content.groups.some((g) => g.items.length)"
+      >
         <NButton size="tiny" :disabled="busy" @click="apply('apply')">{{
           t('applyBuild')
         }}</NButton>
@@ -53,6 +60,7 @@ import { useTranslation } from 'i18next-vue'
 import { useInstance } from '@renderer-shared/shards'
 import type { NotebookEntry, BuildApply } from '@shared/pro/notebook'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
+import LoadoutPanel from './LoadoutPanel.vue'
 const props = defineProps<{ entry: NotebookEntry; targetPatch?: string | null }>(),
   emit = defineEmits<{ open: [NotebookEntry]; changed: [NotebookEntry] }>(),
   api = useInstance(NotebookRenderer),

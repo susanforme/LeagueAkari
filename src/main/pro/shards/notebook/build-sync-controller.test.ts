@@ -79,6 +79,19 @@ describe.runIf(!!process.versions.electron)('client item-set synchronization', (
     await rm(directory, { recursive: true, force: true })
   })
   const request = () => ({ entryId: entry.id, expectedRevision: 1, mode: 'apply' as const })
+  it('honors the loadout context guard before an item-set write', async () => {
+    let changed = false
+    get.mockImplementationOnce(async () => {
+      changed = true
+      return { data: collection }
+    })
+    await expect(
+      builds.apply(request(), undefined, () => {
+        if (changed) throw new Error('Session changed')
+      })
+    ).rejects.toThrow('Session changed')
+    expect(put).not.toHaveBeenCalled()
+  })
   it('preserves unrelated sets, verifies writes, and makes repeated application idempotent', async () => {
     expect(clientItemSet(entry, 'x')).toMatchObject({
       associatedMaps: [11],

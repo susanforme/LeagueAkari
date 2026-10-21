@@ -111,6 +111,7 @@
       >
     </template>
     <template v-if="content.kind === 'build'">
+      <LoadoutEditor :content="content" :catalog="catalog" />
       <NAlert v-if="content.source" type="info">{{ t('importExplanation') }}</NAlert>
       <div
         v-for="(group, index) in content.groups"
@@ -250,6 +251,7 @@ import { computed } from 'vue'
 import EntitySelect from './EntitySelect.vue'
 import SkillIcon from './SkillIcon.vue'
 import EntryMetadata from './EntryMetadata.vue'
+import LoadoutEditor from './LoadoutEditor.vue'
 defineProps<{
   entryId?: string | null
   content: NotebookContent

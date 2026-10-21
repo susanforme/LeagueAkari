@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { playerSchema } from '../champion-pool'
+import { runesSchema, spellsSchema } from './loadout'
 
 export const NOTEBOOK_NAMESPACE = 'pro-notebook-main'
 export const NOTEBOOK_ROUTE = 'pro-notebook'
@@ -65,6 +66,8 @@ export const contentSchema = z
       )
       .max(20),
     skillOrder: z.array(z.number().int().min(1).max(4)).max(30),
+    runes: runesSchema.nullable().optional(),
+    spells: spellsSchema.nullable().optional(),
     source: sourceSchema.nullable()
   })
   .superRefine((content, ctx) => {
@@ -99,6 +102,8 @@ export const listSchema = z.object({
     .optional(),
   reviewState: z.enum(['all', 'unmarked', 'needsReview', 'confirmed']).optional(),
   publicOpponents: z.array(entityId).max(5).optional(),
+  buildMapId: entityId.optional(),
+  buildPosition: z.string().max(20).optional(),
   reportId: z.string().uuid().optional(),
   deleted: z.boolean().default(false),
   page: z.number().int().min(1).max(100_000).default(1)

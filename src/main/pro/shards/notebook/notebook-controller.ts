@@ -71,6 +71,16 @@ export class NotebookController {
       conditions.push("json_extract(content, '$.source.reportId') = ?")
       values.push(query.reportId)
     }
+    if (query.buildMapId !== undefined) {
+      conditions.push("COALESCE(json_extract(content, '$.mapId'), 11) = ?")
+      values.push(query.buildMapId)
+    }
+    if (query.buildPosition) {
+      conditions.push(
+        "(json_extract(content, '$.position') IS NULL OR json_extract(content, '$.position') = ?)"
+      )
+      values.push(query.buildPosition)
+    }
     const where = conditions.join(' AND ')
     const db = this._database()
     const [{ total }] = await db.query(

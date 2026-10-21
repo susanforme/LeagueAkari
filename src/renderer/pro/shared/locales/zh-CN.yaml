@@ -648,3 +648,36 @@ pro:
     skipRest: 结束休息
     lobbyOnly: 回到大厅或结算后可调整计划
     failed: 操作失败或计划已更新，请重试
+
+  loadout:
+    title: 打法方案
+    choose: 选择本局打法
+    apply: 应用整套配置
+    handbook: 打开英雄手册
+    empty: 暂无适合当前英雄、地图和位置的方案，可在英雄手册中创建。
+    selectionOnly: 选到对应英雄后可应用整套配置。
+    runes: 符文
+    spells: 召唤师技能
+    items: 装备方案
+    captureRunes: 读取客户端当前符文
+    configureRunes: 配置符文
+    removeRunes: 不应用符文
+    captureFailed: 无法读取有效符文，请连接客户端并选择一套完整符文。
+    spellD: D 位技能
+    spellF: F 位技能
+    swap: 交换 D / F
+    failed: 操作未完成，请重新读取后重试；已应用的部分不会回退。
+    retry: 重新读取
+    position: 位置已变化，当前打法不适用，请重新选择。
+    changed: 手册方案已修改或删除，请重新选择并应用。
+    warning: '「{{title}}」配置需要检查'
+    noSpaceHelp: 客户端符文页已满，请释放一个符文页后重试。
+    states:
+      skipped: 未配置
+      pending: 待确认
+      matched: 已核对
+      mismatch: 与方案不符
+      failed: 无法确认，请重试
+      conflict: 客户端方案已修改
+      noSpace: 符文页已满
+      invalid: 当前客户端不支持此配置

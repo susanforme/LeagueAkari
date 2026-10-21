@@ -1,5 +1,6 @@
 <template>
   <div class="flex flex-col gap-3">
+    <LoadoutSummary v-if="content.kind === 'build'" :content="content" />
     <div v-if="content.opponentId || content.position" class="flex items-center gap-2">
       <template v-if="content.opponentId">
         <span>{{ t('against') }}</span>
@@ -118,6 +119,7 @@ import { useRouter } from 'vue-router'
 import { Flag, Bolt, Shield } from '@vicons/tabler'
 const planIcons = { opening: Flag, trading: Bolt, caution: Shield }
 import SkillIcon from './SkillIcon.vue'
+import LoadoutSummary from './LoadoutSummary.vue'
 defineProps<{ content: NotebookContent; skills: NotebookSkills; compact?: boolean }>()
 const resources = useGameResourceProvider()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.notebook' })

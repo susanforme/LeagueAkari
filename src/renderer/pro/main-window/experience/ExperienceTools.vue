@@ -3,6 +3,7 @@
     <NButton size="tiny" quaternary @click="searchOpen = true">{{ t('search') }} ⌘/Ctrl K</NButton>
     <SceneMenu />
     <PlayPlanMenu />
+    <LoadoutShortcut />
     <NPopover trigger="click" placement="bottom-end">
       <template #trigger
         ><NButton size="tiny" quaternary :type="failed ? 'warning' : 'default'"
@@ -67,6 +68,7 @@ import QuickSearch from './QuickSearch.vue'
 import SceneMenu from './SceneMenu.vue'
 import PlayReminder from './PlayReminder.vue'
 import PlayPlanMenu from './PlayPlanMenu.vue'
+import LoadoutShortcut from '../views/notebook/LoadoutShortcut.vue'
 import { ProgressRenderer } from '../../shared/shards/progress'
 import type { ReviewBatch } from '@shared/pro/progress'
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.experience' })

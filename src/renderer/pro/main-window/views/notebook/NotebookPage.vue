@@ -484,6 +484,11 @@ function selectChampion(id: number | null) {
 }
 function syncChampion() {
   if (route.name !== NOTEBOOK_ROUTE) return
+  if (route.query.kind === 'build') {
+    kind.value = 'build'
+    tab.value = 'library'
+    deleted.value = false
+  }
   const selected = Number(route.query.champion)
   const next = Number.isSafeInteger(selected) && selected > 0 ? selected : null
   const opponent = Number(route.query.opponent)
@@ -495,7 +500,7 @@ function syncChampion() {
   }
   if (championId.value === next) return
   championId.value = next
-  kind.value = null
+  kind.value = route.query.kind === 'build' ? 'build' : null
   search.value = ''
   opponentId.value = Number.isSafeInteger(opponent) && opponent > 0 ? opponent : null
   if (opponentId.value) kind.value = 'matchup'

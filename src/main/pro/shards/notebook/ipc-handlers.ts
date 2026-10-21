@@ -10,9 +10,11 @@ import {
   saveSchema,
   transferSchema
 } from '@shared/pro/notebook'
+import { loadoutApplySchema } from '@shared/pro/notebook/loadout'
 import { z } from 'zod'
 
 import { BuildSyncController, clientItemSet } from './build-sync-controller'
+import type { LoadoutController } from './loadout-controller'
 import type { NotebookController } from './notebook-controller'
 import type { NotebookResourceLoader } from './resource-loader'
 import { MAX_NOTEBOOK_BYTES, readNotebookFile, saveNotebookFile } from './transfer-files'
@@ -21,8 +23,14 @@ export function registerNotebookHandlers(
   ipc: AkariIpcMain,
   controller: NotebookController,
   resources: NotebookResourceLoader,
-  builds: BuildSyncController
+  builds: BuildSyncController,
+  loadouts: LoadoutController
 ) {
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'captureRunes', () => loadouts.captureRunes())
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'loadoutStatus', () => loadouts.status())
+  ipc.onCall(NOTEBOOK_NAMESPACE, 'applyLoadout', (_, request) =>
+    loadouts.apply(loadoutApplySchema.parse(request))
+  )
   ipc.onCall(NOTEBOOK_NAMESPACE, 'get', (_, id) => controller.get(z.string().uuid().parse(id)))
   ipc.onCall(NOTEBOOK_NAMESPACE, 'practices', (_, id) =>
     controller.practices(z.number().int().positive().nullable().parse(id))

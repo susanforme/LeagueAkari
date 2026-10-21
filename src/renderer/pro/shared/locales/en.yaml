@@ -668,3 +668,36 @@ pro:
     skipRest: End break
     lobbyOnly: Change your plan in lobby or after the game
     failed: Action failed or the plan changed. Please retry.
+
+  loadout:
+    title: Playstyles
+    choose: Choose a playstyle
+    apply: Apply loadout
+    handbook: Open champion notebook
+    empty: No builds match this champion, map and role. Create one in the champion notebook.
+    selectionOnly: Select the matching champion to apply this loadout.
+    runes: Runes
+    spells: Summoner spells
+    items: Item set
+    captureRunes: Read current client runes
+    configureRunes: Configure runes
+    removeRunes: Leave runes unchanged
+    captureFailed: Cannot read valid runes. Connect the client and select a complete rune page.
+    spellD: D spell
+    spellF: F spell
+    swap: Swap D / F
+    failed: Could not complete the operation. Reload and retry; applied parts have not been rolled back.
+    retry: Reload
+    position: Your role changed. Choose a matching playstyle.
+    changed: This notebook build was edited or deleted. Select and apply it again.
+    warning: 'Check the loadout for “{{title}}”'
+    noSpaceHelp: Your rune pages are full. Free a rune page and retry.
+    states:
+      skipped: Not configured
+      pending: Awaiting confirmation
+      matched: Verified
+      mismatch: Does not match
+      failed: Cannot verify; retry
+      conflict: Item set changed in client
+      noSpace: Rune pages full
+      invalid: Unsupported by current client

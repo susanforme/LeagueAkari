@@ -19,11 +19,21 @@ import {
   type TransferPreview,
   saveSchema
 } from '@shared/pro/notebook'
+import type { LoadoutApply, LoadoutStatus, NotebookRunes } from '@shared/pro/notebook/loadout'
 
 @Shard(NotebookRenderer.id)
 export class NotebookRenderer {
   static id = 'pro-notebook-renderer'
   constructor(@Dep(AkariIpcRenderer) private readonly _ipc: AkariIpcRenderer) {}
+  captureRunes() {
+    return this._ipc.call<NotebookRunes>(NOTEBOOK_NAMESPACE, 'captureRunes')
+  }
+  loadoutStatus() {
+    return this._ipc.call<LoadoutStatus>(NOTEBOOK_NAMESPACE, 'loadoutStatus')
+  }
+  applyLoadout(value: LoadoutApply) {
+    return this._ipc.call<LoadoutStatus>(NOTEBOOK_NAMESPACE, 'applyLoadout', value)
+  }
   onChanged(callback: () => void) {
     return this._ipc.onEventVue(NOTEBOOK_NAMESPACE, 'entries-changed', callback)
   }

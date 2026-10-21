@@ -27,6 +27,54 @@ describe.runIf(!!process.versions.electron)('notebook transfer and practice', ()
     await database.destroy()
     await rm(directory, { recursive: true, force: true })
   })
+  it('preserves loadouts through revisions and JSON transfer, and filters builds before pagination', async () => {
+    const runes = {
+      primaryStyleId: 8000,
+      subStyleId: 8100,
+      selectedPerkIds: [8005, 9111, 9104, 8014, 8139, 8135, 5005, 5008, 5001]
+    }
+    const content = {
+      ...blankContent(103, 'build'),
+      title: 'Mid',
+      position: 'MIDDLE' as const,
+      runes,
+      spells: { spell1Id: 4, spell2Id: 12 }
+    }
+    const entry = await controller.save({ id: null, expectedRevision: 0, content })
+    await controller.save({
+      id: entry.id,
+      expectedRevision: 1,
+      content: { ...content, runes: null }
+    })
+    await controller.change({ id: entry.id, expectedRevision: 2, action: 'restore', revision: 1 })
+    expect((await controller.get(entry.id)).content.runes).toEqual(runes)
+    const exported = await controller.exportBundle(103)
+    expect(exported.entries[0].content.spells).toEqual(content.spells)
+    exported.entries[0].content.championId = 64
+    await controller.transfer({ bundle: exported, replacements: [], commit: true })
+    expect(
+      (
+        await controller.list(
+          listSchema.parse({
+            championId: 64,
+            kind: 'build',
+            buildPosition: 'MIDDLE',
+            buildMapId: 11
+          })
+        )
+      ).items[0].content.runes
+    ).toEqual(runes)
+    expect(
+      (
+        await controller.list(
+          listSchema.parse({ kind: 'build', buildPosition: 'JUNGLE', buildMapId: 11 })
+        )
+      ).total
+    ).toBe(0)
+    expect((await controller.list(listSchema.parse({ kind: 'build', buildMapId: 12 }))).total).toBe(
+      0
+    )
+  })
   it('preserves matchup briefs through edits, revision restore, and export/import', async () => {
     const entry = await controller.save({
       id: null,

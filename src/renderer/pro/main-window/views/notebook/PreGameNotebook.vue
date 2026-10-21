@@ -3,6 +3,7 @@
     <NAlert v-if="!context" type="info">{{ t('waitingSelection') }}</NAlert>
     <template v-else>
       <CurrentFocus :champion-id="context.championId" />
+      <LoadoutPanel />
       <div class="flex flex-wrap items-center gap-3">
         <ChampionIcon :champion-id="context.championId" class="size-10! rounded" />
         <span class="font-bold">{{ resources.champions.name(context.championId) }}</span>
@@ -57,6 +58,7 @@ import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
 import EntitySelect from './EntitySelect.vue'
 import EntryBody from './EntryBody.vue'
+import LoadoutPanel from './LoadoutPanel.vue'
 import { quickContext } from './quick-context'
 import { useNotebookResources } from './useNotebookResources'
 import CurrentFocus from '../../../shared/components/focus-goal/CurrentFocus.vue'

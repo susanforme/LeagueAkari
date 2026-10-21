@@ -33,6 +33,11 @@ export function clientItemSet(entry: NotebookEntry, uid: string) {
 const collectionSchema = z
   .object({ itemSets: z.array(z.object({ uid: z.string().min(1) }).passthrough()).max(1000) })
   .passthrough()
+function matchesItemSet(value: Record<string, unknown>, desired: ReturnType<typeof clientItemSet>) {
+  return ['uid', 'title', 'associatedChampions', 'associatedMaps', 'blocks'].every(
+    (key) => stringify(value[key]) === stringify(desired[key as keyof typeof desired])
+  )
+}
 export class BuildSyncController {
   private _disposer: IReactionDisposer | undefined
   private _running: Promise<unknown> | null = null
@@ -133,9 +138,30 @@ export class BuildSyncController {
     )
     this._requestAuto()
   }
-  apply(request: BuildApply, selection?: string): Promise<{ state: string }> {
+  async check(entry: NotebookEntry, assertCurrent: () => void) {
+    assertCurrent()
+    const me = this._league.data.summoner.me!
+    const [mapping] = await this._database().query(
+      'SELECT uid FROM BuildApplications WHERE entryId=? AND playerKey=?',
+      [entry.id, JSON.stringify([this._sgp.state.availability.sgpServerId, me.puuid])]
+    )
+    assertCurrent()
+    if (!mapping) return false
+    const response = await this._league.http.get(
+      `/lol-item-sets/v1/item-sets/${me.summonerId}/sets`,
+      { timeout: 15000 }
+    )
+    assertCurrent()
+    const found = collectionSchema.parse(response.data).itemSets.find((s) => s.uid === mapping.uid)
+    return !!found && matchesItemSet(found, clientItemSet(entry, mapping.uid))
+  }
+  apply(
+    request: BuildApply,
+    selection?: string,
+    guard: () => void = () => {}
+  ): Promise<{ state: string }> {
     if (this._running || this._disposed) return Promise.reject(new Error('busy'))
-    const task = this._apply(request, selection)
+    const task = this._apply(request, selection, guard)
       .catch((error) => {
         this.status = {
           entryId: request.entryId,
@@ -154,7 +180,8 @@ export class BuildSyncController {
     this._running = task
     return task
   }
-  private async _apply(request: BuildApply, selection?: string) {
+  private async _apply(request: BuildApply, selection: string | undefined, guard: () => void) {
+    guard()
     const entry = await this._notebooks.get(request.entryId)
     if (entry.revision !== request.expectedRevision) throw new Error('conflict')
     const identity = this._identity(),
@@ -163,6 +190,7 @@ export class BuildSyncController {
     if (!me || !this._league.state.isConnected || !['Lobby', 'ChampSelect'].includes(phase ?? ''))
       throw new Error('Client unavailable')
     const assertCurrent = () => {
+      guard()
       if (
         this._disposed ||
         identity !== this._identity() ||
@@ -197,10 +225,7 @@ export class BuildSyncController {
     }
     const collection = await read(),
       found = collection.itemSets.find((s) => s.uid === uid)
-    const matches = (value: Record<string, unknown>) =>
-      ['uid', 'title', 'associatedChampions', 'associatedMaps', 'blocks'].every(
-        (key) => stringify(value[key]) === stringify(desired[key as keyof typeof desired])
-      )
+    const matches = (value: Record<string, unknown>) => matchesItemSet(value, desired)
     const record = async (state: string, value: unknown, fingerprint: string) =>
       database.query(
         'INSERT INTO BuildApplications VALUES (?,?,?,?,?) ON CONFLICT(entryId,playerKey) DO UPDATE SET uid=excluded.uid,fingerprint=excluded.fingerprint,payload=excluded.payload',
