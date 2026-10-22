@@ -2,11 +2,23 @@
   <NCard size="small">
     <template #header>
       <div class="flex items-center gap-2">
-        <ChampionIcon :champion-id="report.analysis.metrics.championId ?? -1" class="size-9!" />
+        <ChampionIcon :champion-id="report.analysis.metrics.championId ?? -1" class="size-12!" />
         <span
           >{{ resources.champions.name(report.analysis.metrics.championId ?? -1) }} ·
           {{ report.summary.gameId }}</span
         >
+        <NTag
+          size="small"
+          :type="
+            report.analysis.metrics.outcome === 'win'
+              ? 'success'
+              : report.analysis.metrics.outcome === 'loss'
+                ? 'error'
+                : 'default'
+          "
+        >
+          {{ t(`outcomes.${report.analysis.metrics.outcome}`) }}
+        </NTag>
       </div>
     </template>
     <div class="mb-3 flex flex-wrap gap-3 text-xs opacity-70">
@@ -28,6 +40,19 @@
             label: t('csPerMin'),
             value: report.analysis.metrics.csPerMin?.toFixed(1) ?? '—'
           },
+          {
+            icon: ChartBar,
+            label: t('damageShare'),
+            value:
+              report.analysis.metrics.damageShare == null
+                ? '—'
+                : `${(report.analysis.metrics.damageShare * 100).toFixed(1)}%`
+          },
+          {
+            icon: Coin,
+            label: t('goldAt10'),
+            value: goldAt10 == null ? '—' : `${goldAt10 > 0 ? '+' : ''}${goldAt10.toLocaleString()}`
+          },
           { icon: Clock, label: t('duration'), value: formatGameTime(report.analysis.duration) }
         ]"
         :key="item.label"
@@ -40,41 +65,15 @@
       </div>
     </div>
     <NCollapse
-      ><NCollapseItem :title="tv('checkpoints')" name="checkpoints"
-        ><NScrollbar x-scrollable>
-          <NTable size="small" :single-line="false">
-            <thead>
-              <tr>
-                <th>{{ t('checkpoint') }}</th>
-                <th>{{ t('gold') }}</th>
-                <th>{{ t('cs') }}</th>
-                <th>{{ t('xp') }}</th>
-                <th>{{ t('goldDiff') }}</th>
-                <th>{{ t('csDiff') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="checkpoint in report.analysis.checkpoints" :key="checkpoint.target">
-                <td>
-                  <NButton text size="small" @click="$emit('locate', checkpoint.target)">{{
-                    formatGameTime(checkpoint.target)
-                  }}</NButton>
-                  <div class="text-xs opacity-60">
-                    {{ checkpoint.point ? formatGameTime(checkpoint.point.timestamp) : '—' }}
-                  </div>
-                </td>
-                <td v-for="key in keys" :key="key">{{ checkpoint.point?.[key] ?? '—' }}</td>
-              </tr>
-            </tbody>
-          </NTable>
-          <div class="mt-2 text-xs opacity-60">{{ t('checkpointHelp') }}</div>
-        </NScrollbar></NCollapseItem
-      ></NCollapse
-    >
-    <div class="mt-3 flex flex-wrap items-center gap-2">
-      <span class="text-xs">{{ t('finalItems') }}</span>
-      <ItemDisplay v-for="(id, index) in items" :key="index" :item-id="id" :size="28" />
-    </div>
+      ><NCollapseItem :title="t('finalItems')" name="items">
+        <div class="flex flex-wrap items-center gap-2">
+          <ItemDisplay
+            v-for="(id, index) in items"
+            :key="index"
+            :item-id="id"
+            :size="28"
+          /></div></NCollapseItem
+    ></NCollapse>
     <NAlert
       v-for="limitation in report.analysis.limitations"
       :key="limitation"
@@ -87,31 +86,22 @@
   </NCard>
 </template>
 <script setup lang="ts">
-import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
 import ItemDisplay from '@renderer-shared/components/widgets/ItemDisplay.vue'
-import { useGameResourceProvider } from '@renderer-shared/providers/game-resource'
-import { formatGameTime, type ReviewReport } from '@shared/pro/review'
 import { toBasicInfo } from '@shared/data-adapter/match-history/match-basic'
 import { toParticipants } from '@shared/data-adapter/match-history/participants'
+import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
+import { useGameResourceProvider } from '@renderer-shared/providers/game-resource'
+import { formatGameTime, type ReviewReport } from '@shared/pro/review'
 import { useTranslation } from 'i18next-vue'
-import {
-  NAlert,
-  NButton,
-  NCard,
-  NTable,
-  NIcon,
-  NCollapse,
-  NCollapseItem,
-  NScrollbar
-} from 'naive-ui'
-import { Bolt, Plant2, Clock } from '@vicons/tabler'
+import { NAlert, NCard, NIcon, NTag, NCollapse, NCollapseItem } from 'naive-ui'
+import { Bolt, Plant2, Clock, Coin, ChartBar } from '@vicons/tabler'
 import { computed } from 'vue'
 const props = defineProps<{ report: ReviewReport }>()
-defineEmits<{ locate: [timestamp: number] }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.review' })
-const { t: tv } = useTranslation(undefined, { keyPrefix: 'pro.visual' })
 const resources = useGameResourceProvider()
-const keys = ['gold', 'cs', 'xp', 'goldDiff', 'csDiff'] as const
+const goldAt10 = computed(
+  () => props.report.analysis.checkpoints.find((p) => p.target === 600_000)?.point?.goldDiff ?? null
+)
 const items = computed(
   () =>
     toParticipants(props.report.summary, toBasicInfo(props.report.summary)).find(

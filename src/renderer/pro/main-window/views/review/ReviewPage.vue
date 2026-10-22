@@ -17,38 +17,61 @@
       <div class="flex flex-col gap-4 p-6">
         <NSpin :show="loading && !report">
           <template v-if="report">
+            <NAlert v-if="comparison" type="info" class="mb-3">{{ t('compareHelp') }}</NAlert>
+            <NAlert v-if="incomparable" type="warning" class="mb-3">{{
+              t('differentContext')
+            }}</NAlert>
+            <div
+              class="grid gap-4"
+              :class="comparison ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'"
+            >
+              <ReviewOverview :key="report.id" :report="report" />
+              <ReviewOverview v-if="comparison" :key="comparison.id" :report="comparison" />
+            </div>
+            <NCard v-if="comparison" size="small" class="mt-4" :title="t('compare')">
+              <ReviewChart :reports="[report, comparison]" />
+            </NCard>
+            <KeyMoments
+              v-if="!comparison"
+              :key="`moments:${report.id}`"
+              class="mt-4"
+              :report="report"
+              @locate="locateCheckpoint"
+            />
             <ReviewFindings
+              class="mt-4"
               v-if="!comparison"
               :report="report"
               :insights="baseline"
               @locate="locateFinding"
               @compare="compareBaseline"
             />
-            <NAlert v-if="comparison" type="info" class="mb-3">{{ t('compareHelp') }}</NAlert>
-            <NAlert v-if="incomparable" type="warning" class="mb-3">{{
-              t('differentContext')
-            }}</NAlert>
-            <div class="grid gap-4" :class="comparison ? 'grid-cols-2' : 'grid-cols-1'">
-              <ReviewOverview :report="report" @locate="locateCheckpoint" />
-              <ReviewOverview
-                v-if="comparison"
-                :report="comparison"
-                @locate="compareFocus = $event"
-              />
-            </div>
-            <NCard v-if="comparison" size="small" class="mt-4" :title="t('compare')">
-              <ReviewChart :reports="[report, comparison]" />
-            </NCard>
             <PersonalBaseline
               v-if="!comparison"
               :key="report.id"
               :report="report"
+              class="mt-4"
               @baseline="setBaseline"
             />
+            <div
+              class="mt-4 grid gap-4"
+              :class="comparison ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'"
+            >
+              <ReviewDetails :key="report.id" :report="report" @locate="locateCheckpoint" />
+              <ReviewDetails
+                v-if="comparison"
+                :key="comparison.id"
+                :report="comparison"
+                @locate="locateComparison"
+              />
+            </div>
             <div ref="evidenceSection">
               <NTabs v-model:value="tab" type="line" class="mt-4">
                 <NTabPane name="events" :tab="t('eventsTitle')" display-directive="show">
-                  <div class="grid gap-5" :class="comparison ? 'grid-cols-2' : 'grid-cols-1'">
+                  <div
+                    class="grid gap-5"
+                    :class="comparison ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'"
+                  >
                     <EventReview
                       :key="report.id"
                       :report="report"
@@ -107,6 +130,8 @@ import { useNotebookResources } from '../notebook/useNotebookResources'
 import EventReview from './EventReview.vue'
 import ReviewChart from './ReviewChart.vue'
 import ReviewOverview from './ReviewOverview.vue'
+import ReviewDetails from './ReviewDetails.vue'
+import KeyMoments from './KeyMoments.vue'
 import PersonalBaseline from '../progress/PersonalBaseline.vue'
 import type { Insights } from '@shared/pro/progress'
 import type { ReviewFinding } from '@shared/pro/review/findings'
@@ -124,8 +149,8 @@ const { champions } = useNotebookResources(
 )
 const loading = ref(false)
 const error = ref(false)
-const focus = ref(0)
-const compareFocus = ref(0)
+const focus = ref<number | { timestamp: number; eventId: string | null }>(0)
+const compareFocus = ref<typeof focus.value>(0)
 const baseline = shallowRef<Insights | null>(null)
 const focusWindow = shallowRef<ReviewFinding['evidence']>()
 const tab = ref<'events' | 'details'>('events')
@@ -140,10 +165,18 @@ async function locateFinding(evidence: NonNullable<ReviewFinding['evidence']>) {
   await nextTick()
   evidenceSection.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 }
-function locateCheckpoint(timestamp: number) {
+async function locateCheckpoint(timestamp: number, eventId: string | null = null) {
   focusWindow.value = undefined
-  focus.value = timestamp
+  focus.value = { timestamp, eventId }
   tab.value = 'events'
+  await nextTick()
+  evidenceSection.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+}
+async function locateComparison(timestamp: number) {
+  compareFocus.value = { timestamp, eventId: null }
+  tab.value = 'events'
+  await nextTick()
+  evidenceSection.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 }
 function compareBaseline(id: string, timestamp?: number) {
   if (report.value)

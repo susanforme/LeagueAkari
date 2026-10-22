@@ -190,7 +190,7 @@
 <script setup lang="ts">
 import { useQueryCache } from '../../../shared/composables/query-cache'
 
-import { useGameResourceProvider } from '@renderer-shared/providers/game-resource'
+import { useEventDescription } from './useEventDescription'
 import { useInstance } from '@renderer-shared/shards'
 import { NOTEBOOK_ROUTE, blankContent, listSchema, type NotebookPage } from '@shared/pro/notebook'
 import {
@@ -217,7 +217,7 @@ import {
   useDialog,
   type ScrollbarInst
 } from 'naive-ui'
-import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { computed, onScopeDispose, ref, shallowRef, watch, toRef } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
 import { NotebookRenderer } from '../../../shared/shards/notebook'
 import EventSummary from './EventSummary.vue'
@@ -234,7 +234,7 @@ import { personalDuels } from '@shared/pro/review/duels'
 import FocusGoalButton from '../../../shared/components/focus-goal/FocusGoalButton.vue'
 const props = defineProps<{
   report: ReviewReport
-  focus: number
+  focus: number | { timestamp: number; eventId: string | null }
   focusWindow?: ReviewFinding['evidence']
 }>()
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.review' })
@@ -245,7 +245,6 @@ const { t: td } = useTranslation(undefined, { keyPrefix: 'pro.duels' })
 const duels = computed(() => personalDuels(props.report.analysis))
 const radius = ref<number | null>(60)
 const api = useInstance(NotebookRenderer)
-const resources = useGameResourceProvider()
 const router = useRouter()
 const dialog = useDialog()
 const seconds = ref<number | null>(0)
@@ -282,19 +281,7 @@ function junglerInvolved(event: ReviewEvent) {
   const id = enemyJungler.value
   return id !== null && (event.killerId === id || event.assistingParticipantIds?.includes(id))
 }
-function champion(id?: number) {
-  const player = props.report.analysis.participants.find((p) => p.id === id)
-  return player ? resources.champions.name(player.championId) : t('unknown')
-}
-function describe(event: ReviewEvent) {
-  if (event.type === 'CHAMPION_KILL')
-    return t('killEvent', { killer: champion(event.killerId), victim: champion(event.victimId) })
-  if (event.type === 'ELITE_MONSTER_KILL')
-    return `${champion(event.killerId)} · ${t(`objectives.${event.monsterType}`, { defaultValue: event.monsterType ?? t('unknown') })}${event.monsterSubType ? ` (${event.monsterSubType})` : ''}`
-  if (event.type === 'BUILDING_KILL')
-    return `${champion(event.killerId)} · ${t('building')} · ${event.laneType ?? ''} · ${event.buildingType ?? ''}`
-  return `${champion(event.participantId)} · ${t(`events.${event.type}`, { defaultValue: event.type })} · ${resources.items.display(event.itemId ?? 0)?.name ?? event.itemId ?? ''}`
-}
+const { describe, champion } = useEventDescription(toRef(() => props.report))
 const kind = ref<EventKind>('all')
 const team = ref<number | 'all'>('all')
 const kindOptions = computed(() => eventKinds.map((value) => ({ value, label: tm(value) })))
@@ -387,10 +374,14 @@ async function save() {
 }
 watch(
   [() => props.focus, () => props.focusWindow],
-  ([value, evidence]) => {
+  ([focus, evidence]) => {
+    const value = typeof focus === 'number' ? focus : focus.timestamp
+    const selectedId = typeof focus === 'number' ? null : focus.eventId
     if (evidence) radius.value = Math.max(15, (evidence.to - evidence.from) / 2000)
     seconds.value = Math.min(value, props.report.analysis.duration) / 1000
-    const event = props.report.analysis.events.find((event) => event.timestamp === value)
+    const event = props.report.analysis.events.find((event) =>
+      selectedId ? event.id === selectedId : event.timestamp === value
+    )
     eventId.value = null
     if (event) locateEvent(event)
   },

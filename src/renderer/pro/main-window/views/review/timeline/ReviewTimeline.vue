@@ -1,6 +1,6 @@
 <template>
-  <NCard size="small" :title="t('title')" class="review-timeline">
-    <div class="flex flex-wrap items-center gap-2">
+  <NCard size="small" :title="compact ? t('keyMoments') : t('title')" class="review-timeline">
+    <div v-if="!compact" class="flex flex-wrap items-center gap-2">
       <NButton size="small" :disabled="!previous" @click="previous && emit('select', previous)">{{
         t('previous')
       }}</NButton>
@@ -39,7 +39,7 @@
       >
     </div>
     <div v-if="invalid" role="alert" class="mt-2 text-xs">{{ t('invalid') }}</div>
-    <div class="mt-3 flex flex-wrap gap-2"><slot /></div>
+    <div v-if="!compact" class="mt-3 flex flex-wrap gap-2"><slot /></div>
     <div class="mt-4 grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1">
       <span class="text-xs opacity-60">{{ formatGameTime(timestamp) }}</span>
       <div ref="track" class="relative min-w-0" @pointermove="preview" @pointerleave="hover = null">
@@ -65,7 +65,7 @@
         <span v-for="tick in ticks" :key="tick">{{ formatGameTime(tick) }}</span>
       </div>
       <template v-for="lane in lanes" :key="lane.kind">
-        <span class="flex items-center gap-1 text-xs"
+        <span v-if="lane.kind !== 'all'" class="flex items-center gap-1 text-xs"
           ><NIcon
             :component="eventIcons[lane.kind]"
             :class="eventColors[lane.kind]"
@@ -73,6 +73,7 @@
             aria-hidden="true"
           />{{ tm(lane.kind) }}</span
         >
+        <span v-if="lane.kind === 'all'" />
         <div class="lane relative h-9 min-w-0 rounded">
           <span class="cursor" :style="{ left: `${percent(timestamp)}%` }" />
           <NPopover
@@ -102,11 +103,11 @@
                 :title="group.events.length === 1 ? label(group.events[0]) : undefined"
                 @click="group.events.length === 1 && emit('select', group.events[0])"
                 ><NIcon
-                  :component="eventIcons[lane.kind]"
+                  :component="eventIcons[eventKind(group.events[0], participantId) ?? 'kills']"
                   :class="
                     group.events.some((e) => e.id === selectedId)
                       ? undefined
-                      : eventColors[lane.kind]
+                      : eventColors[eventKind(group.events[0], participantId) ?? 'kills']
                   "
                   :size="16"
                   aria-hidden="true"
@@ -127,11 +128,28 @@
         </div>
       </template>
     </div>
+    <div v-if="compact" class="mt-3 flex flex-wrap gap-4 text-xs opacity-70">
+      <span
+        v-for="kind in eventKinds.filter((kind) => kind !== 'all')"
+        :key="kind"
+        class="flex items-center gap-1"
+      >
+        <NIcon
+          :component="eventIcons[kind]"
+          :class="eventColors[kind]"
+          :size="14"
+          aria-hidden="true"
+        />{{ tm(kind) }}
+      </span>
+    </div>
     <NEmpty v-if="!events.length" size="small" class="mt-3" :description="t('empty')" />
     <div v-if="selected" class="mt-3 flex flex-wrap items-center gap-2 text-sm">
       <span>{{ label(selected) }}</span>
-      <NButton size="tiny" @click="seek(selected.timestamp - 30_000)">{{ t('leadIn') }}</NButton>
+      <NButton v-if="!compact" size="tiny" @click="seek(selected.timestamp - 30_000)">{{
+        t('leadIn')
+      }}</NButton>
     </div>
+    <slot name="footer" />
   </NCard>
 </template>
 <script setup lang="ts">
@@ -144,6 +162,7 @@ import { eventIcons, eventColors } from '../event-map/icons'
 import { eventKind, eventKinds } from '../event-map/points'
 import { adjacentEvent, groupEvents, parseTime, timelineRange } from './navigation'
 const props = defineProps<{
+  compact?: boolean
   events: ReviewEvent[]
   timestamp: number
   duration: number
@@ -166,17 +185,20 @@ const previous = computed(() => adjacentEvent(sorted.value, props.timestamp, pro
 const next = computed(() => adjacentEvent(sorted.value, props.timestamp, props.selectedId, 1))
 const selected = computed(() => props.events.find((e) => e.id === props.selectedId))
 const lanes = computed(() =>
-  eventKinds
-    .filter((kind) => kind !== 'all')
-    .map((kind) => ({
+  (props.compact ? (['all'] as const) : eventKinds.filter((kind) => kind !== 'all')).map(
+    (kind) => ({
       kind,
       groups: groupEvents(
-        sorted.value.filter((e) => eventKind(e, props.participantId) === kind),
+        sorted.value.filter((event) => {
+          const category = eventKind(event, props.participantId)
+          return category && (kind === 'all' || category === kind)
+        }),
         range.value.from,
         range.value.to,
         width.value
       )
-    }))
+    })
+  )
 )
 const ticks = computed(() =>
   Array.from({ length: width.value < 360 ? 3 : 5 }, (_, i) => i).map(

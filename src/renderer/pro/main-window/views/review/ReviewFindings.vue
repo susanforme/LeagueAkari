@@ -1,5 +1,5 @@
 <template>
-  <NCard v-if="findings.length" size="small" :title="t('title')" class="mb-4">
+  <NCard v-if="findings.length" size="small" :title="t('title')">
     <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] gap-3">
       <div
         v-for="finding in findings"
@@ -13,6 +13,15 @@
             class="text-amber-600 dark:text-amber-400"
             aria-hidden="true"
           /><span class="text-sm font-medium">{{ t(`${finding.kind}Title`) }}</span>
+        </div>
+        <div class="text-xs leading-relaxed opacity-70">
+          {{
+            t(finding.kind === 'farm' && !finding.evidence ? 'farmSummary' : finding.kind, {
+              value: format(finding.value),
+              baseline: format(finding.baseline),
+              time: formatGameTime(finding.value)
+            })
+          }}
         </div>
         <template v-if="finding.kind === 'deathBeforeObjective'">
           <div class="flex items-center gap-3 py-2">

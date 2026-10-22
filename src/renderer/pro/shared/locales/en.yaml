@@ -413,6 +413,14 @@ pro:
       BOTTOM: Bottom
       UTILITY: Support
   review:
+    inspectMoment: Inspect this moment
+    damageShare: Damage share
+    goldAt10: Lane gold difference at 10 min
+    outcomes:
+      win: Victory
+      loss: Defeat
+      remake: Remake
+      unknown: Unknown result
     findings:
       goals:
         goldDrop: Check the wave and visible enemies before pushing when my gold lead changes.
@@ -713,6 +721,7 @@ pro:
     practiceEmpty: 'Add entries to practice from the notebook'
     windowSeconds: 'Window on each side (seconds)'
     enemyJungler: 'Enemy jungler involved'
+    baselineDetails: More metrics and historical samples
     baseline: 'Personal baseline'
     allChampions: 'Include other champions in this role'
     current: 'This match'
@@ -880,6 +889,7 @@ pro:
     soloDeaths: Solo deaths
     checkpoints: Laning checkpoints
   timeline:
+    keyMoments: Key moments
     title: Event timeline
     previous: Previous event
     next: Next event
