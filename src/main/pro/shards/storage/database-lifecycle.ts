@@ -1,7 +1,7 @@
 import type { DataSource } from 'typeorm'
 
 import { initializeChampionPool } from './upgrades/version-1'
-import { initializeResourceCache } from './upgrades/version-2'
+import { initializeLocalResources } from './upgrades/version-2'
 import { initializeNotebooks } from './upgrades/version-3'
 import { initializeReviewsAndProfiles } from './upgrades/version-4'
 import { initializePracticeAndTraining } from './upgrades/version-5'
@@ -24,7 +24,7 @@ export async function initializeProDatabase(dataSource: DataSource) {
   if (version < PRO_DATABASE_VERSION) {
     await dataSource.transaction(async (manager) => {
       if (version === 0) await initializeChampionPool(manager)
-      if (version < 2) await initializeResourceCache(manager)
+      if (version < 2) await initializeLocalResources(manager)
       if (version < 3) await initializeNotebooks(manager)
       if (version < 4) await initializeReviewsAndProfiles(manager)
       if (version < 5) await initializePracticeAndTraining(manager)

@@ -1,8 +1,8 @@
-import type { CachedGame, PlayReminder, ReminderSettings } from './index'
+import type { LocalGame, PlayReminder, ReminderSettings } from './index'
 import { sessionSummary } from './summary'
 
 export function playReminder(
-  games: CachedGame[],
+  games: LocalGame[],
   settings: ReminderSettings,
   gameId: number,
   now: number

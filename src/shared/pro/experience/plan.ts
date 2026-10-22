@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { toBasicInfo } from '../../data-adapter/match-history/match-basic'
 import { type PlayerIdentity, playerSchema } from '../champion-pool'
-import type { CachedGame } from './index'
+import type { LocalGame } from './index'
 
 const time = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
 export const focusSchema = z.object({
@@ -57,7 +57,7 @@ export interface PlanStatus {
     reached: boolean
   }
 }
-export function planProgress(plan: PlayPlan, matches: CachedGame[]) {
+export function planProgress(plan: PlayPlan, matches: LocalGame[]) {
   const session = plan.session
   const selected = session
     ? matches.filter(

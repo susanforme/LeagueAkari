@@ -41,7 +41,7 @@ export class MatchHistoryLoader {
     start: number,
     count: number,
     signal: AbortSignal,
-    cached = new Set<number>()
+    local = new Set<number>()
   ): Promise<LcuOrSgpGameSummary[]> {
     const { leagueClient, sgp } = this._context
     const options = { signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]) }
@@ -67,7 +67,7 @@ export class MatchHistoryLoader {
     for (const game of data.games.games) {
       signal.throwIfAborted()
       let full = game
-      if (game.participants.length < 10 && !cached.has(game.gameId)) {
+      if (game.participants.length < 10 && !local.has(game.gameId)) {
         try {
           full = (
             await leagueClient.api.matchHistory.getGame(game.gameId, {

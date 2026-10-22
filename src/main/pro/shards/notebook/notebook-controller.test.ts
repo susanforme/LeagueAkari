@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { initializeProDatabase } from '../storage/database-lifecycle'
 import { initializeChampionPool } from '../storage/upgrades/version-1'
-import { initializeResourceCache } from '../storage/upgrades/version-2'
+import { initializeLocalResources } from '../storage/upgrades/version-2'
 import { NotebookController } from './notebook-controller'
 import { NotebookResourceLoader } from './resource-loader'
 
@@ -248,7 +248,7 @@ describe.runIf(!!process.versions.electron)('notebook persistence', () => {
     await source.initialize()
     await source.transaction(async (manager) => {
       await initializeChampionPool(manager)
-      await initializeResourceCache(manager)
+      await initializeLocalResources(manager)
       await manager.query("INSERT INTO PoolPlayers VALUES ('EUW1','player','Name#Tag',123)")
       await manager.query(
         'INSERT INTO PoolResources VALUES (\'en\',\'{"champions":{},"queues":{}}\',123)'

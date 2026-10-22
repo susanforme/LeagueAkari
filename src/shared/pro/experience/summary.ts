@@ -1,8 +1,8 @@
 import { toBasicInfo } from '../../data-adapter/match-history/match-basic'
-import type { CachedGame, Partner, SessionSummary } from './index'
+import type { LocalGame, Partner, SessionSummary } from './index'
 
 // A break of two hours ends a continuous play session; historical imports use match times.
-export function sessionSummary(games: CachedGame[]): SessionSummary | null {
+export function sessionSummary(games: LocalGame[]): SessionSummary | null {
   const sorted = [...games].sort((a, b) => b.match.startedAt - a.match.startedAt)
   if (!sorted.length) return null
   const included = [sorted[0]]
@@ -33,7 +33,7 @@ export function sessionSummary(games: CachedGame[]): SessionSummary | null {
   }
 }
 
-export function partnerSummary(games: CachedGame[], puuid: string): Partner[] {
+export function partnerSummary(games: LocalGame[], puuid: string): Partner[] {
   const partners = new Map<string, Partner>()
   const seen = new Set<number>()
   for (const { match, summary } of games) {

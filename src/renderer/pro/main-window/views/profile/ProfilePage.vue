@@ -24,7 +24,7 @@
             <span class="identity-name">{{
               latest
                 ? displayName(latest)
-                : cachedPlayers.find((p) => key(p) === selected)?.name || t('title')
+                : localPlayers.find((p) => key(p) === selected)?.name || t('title')
             }}</span>
             <span class="profile-muted"
               >{{ selectedPlayer?.serverId
@@ -56,7 +56,7 @@
           :player-name="
             latest
               ? displayName(latest)
-              : cachedPlayers.find((p) => key(p) === selected)?.name || selectedPlayer.puuid
+              : localPlayers.find((p) => key(p) === selected)?.name || selectedPlayer.puuid
           "
           :refresh-token="refreshToken"
         />
@@ -155,7 +155,7 @@ const league = useLeagueClientStore(),
   sgp = useSgpStore()
 const api = useInstance(ProfileRenderer)
 const poolApi = useInstance(ChampionPoolRenderer)
-const cachedPlayers = shallowRef<PoolPlayer[]>([])
+const localPlayers = shallowRef<PoolPlayer[]>([])
 const players = shallowRef<ProfileSnapshot[]>([])
 const status = shallowRef<ProfileStatus | null>(null)
 const selected = ref<string | null>(null)
@@ -191,7 +191,7 @@ const displayName = (snapshot: ProfileSnapshot) =>
     : snapshot.summoner.displayName
 const latest = computed(() => players.value.find((p) => key(p) === selected.value))
 const selectedPlayer = computed(
-  () => latest.value ?? cachedPlayers.value.find((p) => key(p) === selected.value)
+  () => latest.value ?? localPlayers.value.find((p) => key(p) === selected.value)
 )
 const queueOptions = computed(() =>
   rankedQueues.map((value) => ({
@@ -263,7 +263,7 @@ async function reload(force = false) {
   if (!active) return
   const current = ++reloadGeneration
   try {
-    const [nextStatus, nextPlayers, cached] = await Promise.all([
+    const [nextStatus, nextPlayers, local] = await Promise.all([
       api.status(),
       api.players(),
       poolApi.players()
@@ -274,15 +274,15 @@ async function reload(force = false) {
       JSON.stringify(nextPlayers.map((p) => p.id)) !==
       JSON.stringify(players.value.map((p) => p.id))
     players.value = nextPlayers
-    cachedPlayers.value = cached
+    localPlayers.value = local
     error.value = false
     if (nextStatus.current || !selected.value)
       selected.value = nextStatus.current
         ? key(nextStatus.current)
         : nextPlayers[0]
           ? key(nextPlayers[0])
-          : cached[0]
-            ? key(cached[0])
+          : local[0]
+            ? key(local[0])
             : null
     if (changed) refreshToken.value++
     if (force || changed || !trend.value) await loadHistory()

@@ -1,6 +1,6 @@
 import {
   type ChampionStats,
-  MAX_CACHED_ANALYSIS,
+  MAX_LOCAL_MATCHES_ANALYZED,
   type PoolMatch,
   type PoolQuery,
   type PoolResult,
@@ -31,11 +31,11 @@ function sample(
 export function aggregatePool(
   matches: PoolMatch[],
   query: PoolQuery,
-  cachedMatches: number
+  localMatches: number
 ): PoolResult {
   const scanned = matches
     .toSorted((a, b) => b.startedAt - a.startedAt || b.gameId - a.gameId)
-    .slice(0, MAX_CACHED_ANALYSIS)
+    .slice(0, MAX_LOCAL_MATCHES_ANALYZED)
   const filtered = scanned.filter(
     (m) =>
       m.outcome !== 'remake' &&
@@ -114,12 +114,12 @@ export function aggregatePool(
     championIds: [...new Set(scanned.flatMap((m) => (m.championId ? [m.championId] : [])))],
     topChampions,
     totalChampions: champions.length,
-    cachedMatches,
+    localMatches,
     scannedMatches: scanned.length,
     filteredMatches: filtered.length,
     from: filtered.at(-1)?.startedAt ?? null,
     to: filtered[0]?.startedAt ?? null,
-    truncated: cachedMatches > MAX_CACHED_ANALYSIS
+    truncated: localMatches > MAX_LOCAL_MATCHES_ANALYZED
   }
 }
 

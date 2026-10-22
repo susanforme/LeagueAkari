@@ -3,6 +3,8 @@ import { matchQuerySchema, querySchema, syncSchema } from '@shared/pro/champion-
 import { DataSource } from 'typeorm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ReviewController } from '../review/review-controller'
+import { reviewFixture } from '../review/test-fixtures'
 import { initializeProDatabase } from '../storage/database-lifecycle'
 import { ChampionPoolController } from './champion-pool-controller'
 import type { ChampionPoolContext } from './context'
@@ -68,6 +70,36 @@ describe.runIf(!!process.versions.electron)('champion pool synchronization', () 
     expect(result.items[0].damageShare.value).toBe(0.4)
   })
 
+  it('reuses saved timelines offline, isolates their owner and honors explicit refresh', async () => {
+    const fixture = reviewFixture()
+    history.mockResolvedValue(response([fixture.summary]))
+    await controller.archive(request)
+    const reviews = new ReviewController(() => database, {
+      match: async () => fixture.summary,
+      details: async () => fixture.details
+    })
+    const report = await reviews.open({ ...request, gameId: 1, refresh: false })
+    await reviews.dispose()
+    Object.assign(context.leagueClient.state, { isConnected: false })
+    expect(await controller.details(request, 1)).toEqual(fixture.details)
+    await expect(controller.details(request, 1, true)).rejects.toThrow('disconnected')
+    for (const field of ['puuid', 'serverId'] as const) {
+      await database.query(`UPDATE ReviewReports SET ${field} = ? WHERE id = ?`, [
+        'other',
+        report.id
+      ])
+      await expect(controller.details(request, 1)).rejects.toThrow('disconnected')
+      await database.query(`UPDATE ReviewReports SET ${field} = ? WHERE id = ?`, [
+        request[field],
+        report.id
+      ])
+    }
+    await database.query(
+      "UPDATE ReviewReports SET report = json_set(report, '$.details.source', 'lcu')"
+    )
+    await expect(controller.details(request, 1)).rejects.toThrow('disconnected')
+  })
+
   it('paginates all matching champion games past 20 with stable order and isolated filters', async () => {
     const games = Array.from({ length: 50 }, (_, index) => {
       const game = sgpSummary(index + 1)
@@ -117,7 +149,7 @@ describe.runIf(!!process.versions.electron)('champion pool synchronization', () 
     expect(() => controller.start(request)).toThrow('busy')
     await finished()
     expect(history).toHaveBeenCalledTimes(2)
-    expect((await controller.query(query)).cachedMatches).toBe(20)
+    expect((await controller.query(query)).localMatches).toBe(20)
     const partial = sgpSummary()
     partial.data.json.participants.splice(1)
     history.mockResolvedValue(response([partial]))
@@ -126,7 +158,7 @@ describe.runIf(!!process.versions.electron)('champion pool synchronization', () 
     const pool = await controller.query(query)
     expect(pool.items[0].damageShare.value).toBeCloseTo(0.2)
     expect((await controller.match(request, 1))?.source).toBe('sgp')
-    expect((await controller.query({ ...query, serverId: 'NA1' })).cachedMatches).toBe(0)
+    expect((await controller.query({ ...query, serverId: 'NA1' })).localMatches).toBe(0)
     expect(await controller.match({ ...request, puuid: 'another-player' }, 1)).toBeNull()
   })
 
@@ -146,7 +178,7 @@ describe.runIf(!!process.versions.electron)('champion pool synchronization', () 
     resolve(response([sgpSummary(21)]))
     await finished()
     expect(controller.status().sync.cancelled).toBe(true)
-    expect((await controller.query(query)).cachedMatches).toBe(20)
+    expect((await controller.query(query)).localMatches).toBe(20)
   })
 
   it('rejects results fetched across a client account switch', async () => {
@@ -162,7 +194,7 @@ describe.runIf(!!process.versions.electron)('champion pool synchronization', () 
     resolve(response([sgpSummary()]))
     await finished()
     expect(controller.status().sync.error).toBe('syncFailed')
-    expect((await controller.query(query)).cachedMatches).toBe(0)
+    expect((await controller.query(query)).localMatches).toBe(0)
   })
 
   it('does not cache a malformed page under the requested player', async () => {
@@ -172,7 +204,7 @@ describe.runIf(!!process.versions.electron)('champion pool synchronization', () 
     controller.start(request)
     await finished()
     expect(controller.status().sync.error).toBe('syncFailed')
-    expect((await controller.query(query)).cachedMatches).toBe(0)
+    expect((await controller.query(query)).localMatches).toBe(0)
   })
   it('stops at the cached boundary even when the newest page also contains new games', async () => {
     history.mockResolvedValueOnce(response([sgpSummary(1)]))
@@ -181,18 +213,18 @@ describe.runIf(!!process.versions.electron)('champion pool synchronization', () 
     history.mockResolvedValue(response(Array.from({ length: 20 }, (_, i) => sgpSummary(20 - i))))
     await controller.archive(request)
     expect(history).toHaveBeenCalledTimes(1)
-    expect((await controller.query(query)).cachedMatches).toBe(20)
+    expect((await controller.query(query)).localMatches).toBe(20)
   })
   it('archives only missing games and retries only the failed page', async () => {
     const first = Array.from({ length: 20 }, (_, i) => sgpSummary(i + 1))
     history.mockResolvedValueOnce(response(first)).mockRejectedValueOnce(new Error('offline'))
     await expect(controller.archive(request)).rejects.toThrow('Archive incomplete')
-    expect((await controller.query(query)).cachedMatches).toBe(20)
+    expect((await controller.query(query)).localMatches).toBe(20)
     history.mockResolvedValueOnce(response([sgpSummary(21)]))
     controller.retry()
     await finished()
     expect(history.mock.calls[2][1].startIndex).toBe(20)
-    expect((await controller.query(query)).cachedMatches).toBe(21)
+    expect((await controller.query(query)).localMatches).toBe(21)
     const changed = sgpSummary(1)
     changed.data.json.participants[0].kills = 99
     history.mockResolvedValue(response([changed]))

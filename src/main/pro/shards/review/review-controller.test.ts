@@ -43,6 +43,7 @@ describe.runIf(!!process.versions.electron)('persisted reviews', () => {
     expect(first.id).toBe(second.id)
     expect(pool.details).toHaveBeenCalledTimes(1)
     expect((await controller.open({ ...request, refresh: true })).id).toBe(first.id)
+    expect(pool.details).toHaveBeenLastCalledWith({ ...request, refresh: true }, 1, true)
     const notebook = new NotebookController(() => source)
     const content = {
       ...blankContent(103, 'note'),

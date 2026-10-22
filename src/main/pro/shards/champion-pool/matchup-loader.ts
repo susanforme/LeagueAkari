@@ -1,7 +1,11 @@
 import { toBasicInfo } from '@shared/data-adapter/match-history/match-basic'
 import { toParticipants } from '@shared/data-adapter/match-history/participants'
 import type { LcuOrSgpGameSummary } from '@shared/data-adapter/wrapper'
-import { MAX_CACHED_ANALYSIS, type PoolMatch, type SampleMetric } from '@shared/pro/champion-pool'
+import {
+  MAX_LOCAL_MATCHES_ANALYZED,
+  type PoolMatch,
+  type SampleMetric
+} from '@shared/pro/champion-pool'
 import type { MatchupQuery, MatchupResult, MatchupStats } from '@shared/pro/champion-pool/matchups'
 import { REVIEW_VERSION, type ReviewPoint } from '@shared/pro/review'
 import { findOpponent } from '@shared/pro/review/opponent'
@@ -25,7 +29,7 @@ export async function loadMatchups(
        SELECT id FROM ReviewReports WHERE serverId=m.serverId AND puuid=m.puuid AND gameId=m.gameId
        AND json_extract(report,'$.analysis.version')=? ORDER BY createdAt DESC,rowid DESC LIMIT 1
      ) WHERE m.serverId=? AND m.puuid=? ORDER BY m.startedAt DESC,m.gameId DESC LIMIT ?`,
-    [REVIEW_VERSION, query.serverId, query.puuid, MAX_CACHED_ANALYSIS + 1]
+    [REVIEW_VERSION, query.serverId, query.puuid, MAX_LOCAL_MATCHES_ANALYZED + 1]
   )
   const missingTimelineGameIds: number[] = []
   const groups = new Map<number, MatchupStats>()
@@ -44,7 +48,7 @@ export async function loadMatchups(
       metric.samples++
     }
   }
-  for (const row of rows.slice(0, MAX_CACHED_ANALYSIS)) {
+  for (const row of rows.slice(0, MAX_LOCAL_MATCHES_ANALYZED)) {
     const match: PoolMatch = JSON.parse(row.projection)
     if (
       match.outcome === 'remake' ||
@@ -108,7 +112,7 @@ export async function loadMatchups(
     items,
     total: items.reduce((sum, item) => sum + item.games, 0),
     excluded,
-    truncated: rows.length > MAX_CACHED_ANALYSIS,
+    truncated: rows.length > MAX_LOCAL_MATCHES_ANALYZED,
     matches: matches.slice((query.page - 1) * query.pageSize, query.page * query.pageSize),
     matchCount: matches.length
   }

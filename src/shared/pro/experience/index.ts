@@ -69,7 +69,7 @@ export interface ExperienceStatus {
   scene: string | null
   values: SceneValues
 }
-export interface CachedGame {
+export interface LocalGame {
   match: PoolMatch
   summary: LcuOrSgpGameSummary
 }

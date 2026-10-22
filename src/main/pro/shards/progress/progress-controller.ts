@@ -198,11 +198,11 @@ export class ProgressController {
   async preview(request: z.infer<typeof batchSchema>): Promise<ReviewBatch> {
     const items: ReviewBatch['items'] = []
     for (const gameId of [...new Set(request.gameIds)]) {
-      const cached = await this._database().query(
+      const local = await this._database().query(
         'SELECT gameId FROM PoolMatches WHERE serverId=? AND puuid=? AND gameId=?',
         [request.serverId, request.puuid, gameId]
       )
-      if (!cached.length) throw new Error('Match unavailable')
+      if (!local.length) throw new Error('Match unavailable')
       const rows = await this._database().query(
         'SELECT report FROM ReviewReports WHERE serverId=? AND puuid=? AND gameId=? ORDER BY createdAt DESC LIMIT 1',
         [request.serverId, request.puuid, gameId]

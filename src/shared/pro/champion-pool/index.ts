@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 export const CHAMPION_POOL_NAMESPACE = 'pro-champion-pool-main'
 export const CHAMPION_POOL_ROUTE = 'pro-champion-pool'
-export const MAX_CACHED_ANALYSIS = 10_000
+export const MAX_LOCAL_MATCHES_ANALYZED = 10_000
 export const poolSortFields = [
   'games',
   'winRate',
@@ -103,7 +103,7 @@ export interface PoolResult {
   topChampions: { championId: number | null; games: number }[]
   championIds: number[]
   totalChampions: number
-  cachedMatches: number
+  localMatches: number
   scannedMatches: number
   filteredMatches: number
   from: number | null

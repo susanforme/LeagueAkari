@@ -137,7 +137,7 @@ describe('champion pool statistics', () => {
     const result = aggregatePool(matches, query(), matches.length)
     expect(result).toMatchObject({
       truncated: true,
-      cachedMatches: 10_001,
+      localMatches: 10_001,
       scannedMatches: 10_000,
       from: 2,
       to: 10_001

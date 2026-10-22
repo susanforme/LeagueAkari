@@ -47,19 +47,19 @@ export class ReviewController {
   private async _open(request: ReviewRequest): Promise<ReviewReport> {
     const { serverId, puuid, gameId } = request
     const database = this._database()
-    const cached = await database.query(
+    const local = await database.query(
       'SELECT report FROM ReviewReports WHERE serverId = ? AND puuid = ? AND gameId = ? ORDER BY createdAt DESC LIMIT 1',
       [serverId, puuid, gameId]
     )
-    if (cached.length && !request.refresh) return JSON.parse(cached[0].report)
+    if (local.length && !request.refresh) return JSON.parse(local[0].report)
     const summary = await this._pool.match(request, gameId)
-    if (!summary) throw new Error('Match not cached')
+    if (!summary) throw new Error('Match not saved locally')
     let details: ReviewReport['details'] = null
     try {
-      details = await this._pool.details(request, gameId)
+      details = await this._pool.details(request, gameId, request.refresh)
     } catch (error) {
       // Keep an existing report intact when refreshing its timeline fails.
-      if (cached.length) throw error
+      if (local.length) throw error
     }
     if (this._disposed) throw new Error('Review service disposed')
     const analysis = analyzeMatch(summary, details, puuid)

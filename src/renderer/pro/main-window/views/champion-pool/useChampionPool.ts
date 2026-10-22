@@ -116,19 +116,19 @@ export function useChampionPool() {
 
   async function refreshPlayers() {
     const epoch = lifecycle
-    const cached = await api.players()
+    const local = await api.players()
     if (!active.value || epoch !== lifecycle) return
-    players.value = cached
+    players.value = local
     const current =
       league.summoner.me?.puuid && sgp.availability.sgpServerId
         ? identity({ puuid: league.summoner.me.puuid, serverId: sgp.availability.sgpServerId })
         : null
     selected.value =
       current ??
-      (cached.some((p) => identity(p) === selected.value)
+      (local.some((p) => identity(p) === selected.value)
         ? selected.value
-        : cached[0]
-          ? identity(cached[0])
+        : local[0]
+          ? identity(local[0])
           : null)
   }
 

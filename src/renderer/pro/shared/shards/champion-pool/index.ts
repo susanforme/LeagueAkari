@@ -60,6 +60,6 @@ export class ChampionPoolRenderer {
     return this._ipc.onEventVue(CHAMPION_POOL_NAMESPACE, 'resources-changed', callback)
   }
   onChanged(callback: () => void) {
-    return this._ipc.onEventVue(CHAMPION_POOL_NAMESPACE, 'cache-changed', callback)
+    return this._ipc.onEventVue(CHAMPION_POOL_NAMESPACE, 'data-changed', callback)
   }
 }

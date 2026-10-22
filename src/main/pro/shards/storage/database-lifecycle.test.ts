@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { LoadoutPreferencesController } from '../notebook/loadout-preferences-controller'
 import { NewerDatabaseVersionError, initializeProDatabase } from './database-lifecycle'
 import { initializeChampionPool } from './upgrades/version-1'
-import { initializeResourceCache } from './upgrades/version-2'
+import { initializeLocalResources } from './upgrades/version-2'
 import { initializeNotebooks } from './upgrades/version-3'
 import { initializeReviewsAndProfiles } from './upgrades/version-4'
 
@@ -57,7 +57,7 @@ describe.runIf(!!process.versions.electron)('pro SQLite lifecycle', () => {
     await source.initialize()
     await source.transaction(async (manager) => {
       await initializeChampionPool(manager)
-      await initializeResourceCache(manager)
+      await initializeLocalResources(manager)
       await initializeNotebooks(manager)
       await manager.query("INSERT INTO NotebookResources VALUES ('keep', '{}', 1)")
       await manager.query('DROP TABLE IF EXISTS HandbookChampions')
@@ -87,7 +87,7 @@ describe.runIf(!!process.versions.electron)('pro SQLite lifecycle', () => {
     await source.initialize()
     await source.transaction(async (manager) => {
       await initializeChampionPool(manager)
-      await initializeResourceCache(manager)
+      await initializeLocalResources(manager)
       await initializeNotebooks(manager)
       await initializeReviewsAndProfiles(manager)
       await manager.query('DROP TABLE IF EXISTS HandbookChampions')

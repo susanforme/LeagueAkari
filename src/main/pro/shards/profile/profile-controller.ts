@@ -1,7 +1,11 @@
 import type { LeagueClientMain } from '@main/shards/league-client'
 import type { AkariLogger } from '@main/shards/logger-factory'
 import type { SgpMain } from '@main/shards/sgp'
-import { MAX_CACHED_ANALYSIS, type PlayerIdentity, type PoolMatch } from '@shared/pro/champion-pool'
+import {
+  MAX_LOCAL_MATCHES_ANALYZED,
+  type PlayerIdentity,
+  type PoolMatch
+} from '@shared/pro/champion-pool'
 import {
   type ProfileActivityQuery,
   type ProfileMatches,
@@ -228,16 +232,16 @@ export class ProfileController {
         activityStart(now),
         now,
         ...(player.queueIds ?? [420, 440]),
-        MAX_CACHED_ANALYSIS + 1
+        MAX_LOCAL_MATCHES_ANALYZED + 1
       ]
     )
     return summarizeActivity(
-      rows.slice(0, MAX_CACHED_ANALYSIS).map((row) => ({
+      rows.slice(0, MAX_LOCAL_MATCHES_ANALYZED).map((row) => ({
         match: JSON.parse(row.projection) as PoolMatch,
         duration: row.duration
       })),
       now,
-      rows.length > MAX_CACHED_ANALYSIS
+      rows.length > MAX_LOCAL_MATCHES_ANALYZED
     )
   }
   async matches(query: ProfileMatchesQuery): Promise<ProfileMatches> {

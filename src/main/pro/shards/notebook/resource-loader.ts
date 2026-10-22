@@ -10,17 +10,20 @@ import type { DataSource } from 'typeorm'
 import { z } from 'zod'
 
 const base = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global'
+const SYNC_INTERVAL_MS = 86_400_000
+const RETRY_INTERVAL_MS = 60_000
 export class NotebookResourceLoader {
   private readonly _pending = new Map<string, Promise<unknown>>()
   private readonly _abort = new AbortController()
   private readonly _refreshes = new Map<string, Promise<unknown>>()
+  private readonly _retryAfter = new Map<string, number>()
   constructor(
     private readonly _database: () => DataSource,
     private readonly _changed: (key: string, failed: boolean) => void = () => {}
   ) {}
 
   catalog(locale: ResourceLocale) {
-    return this._cached(`catalog:${locale}`, notebookCatalogSchema, async () => {
+    return this._loadLocalFirst(`catalog:${locale}`, notebookCatalogSchema, async () => {
       const [items, spells] = await Promise.all([
         this._fetch(locale, 'items.json'),
         this._fetch(locale, 'summoner-spells.json')
@@ -29,13 +32,13 @@ export class NotebookResourceLoader {
     })
   }
   skills(locale: ResourceLocale, championId: number) {
-    return this._cached(`skills:${locale}:${championId}`, skillsSchema, async () => {
+    return this._loadLocalFirst(`skills:${locale}:${championId}`, skillsSchema, async () => {
       const data = await this._fetch(locale, `champions/${championId}.json`)
       return z.object({ spells: skillsSchema }).parse(data).spells
     })
   }
   runes(locale: ResourceLocale) {
-    return this._cached(`runes:${locale}`, runeCatalogSchema, async () => {
+    return this._loadLocalFirst(`runes:${locale}`, runeCatalogSchema, async () => {
       const [styles, perks] = await Promise.all([
         this._fetch(locale, 'perkstyles.json'),
         this._fetch(locale, 'perks.json')
@@ -47,12 +50,15 @@ export class NotebookResourceLoader {
     })
   }
   championInfo(locale: ResourceLocale, championId: number) {
-    return this._cached(`champion-info:${locale}:${championId}`, championInfoSchema, async () =>
-      championInfoSchema.parse(await this._fetch(locale, `champions/${championId}.json`))
+    return this._loadLocalFirst(
+      `champion-info:${locale}:${championId}`,
+      championInfoSchema,
+      async () =>
+        championInfoSchema.parse(await this._fetch(locale, `champions/${championId}.json`))
     )
   }
   positions(locale: ResourceLocale) {
-    return this._cached(`positions:${locale}`, championPositionsSchema, async () => {
+    return this._loadLocalFirst(`positions:${locale}`, championPositionsSchema, async () => {
       const rows = z
         .array(
           z.object({
@@ -92,7 +98,11 @@ export class NotebookResourceLoader {
     if (!response.ok) throw new Error(`Resource HTTP ${response.status}`)
     return response.json()
   }
-  private _cached<T>(key: string, schema: z.ZodType<T>, fetcher: () => Promise<T>): Promise<T> {
+  private _loadLocalFirst<T>(
+    key: string,
+    schema: z.ZodType<T>,
+    fetcher: () => Promise<T>
+  ): Promise<T> {
     const existing = this._pending.get(key)
     if (existing) return existing as Promise<T>
     const request = (async () => {
@@ -101,7 +111,6 @@ export class NotebookResourceLoader {
         key
       ])
       const previous = row ? schema.parse(JSON.parse(row.data)) : null
-      if (previous && Date.now() - row.updatedAt < 86_400_000) return previous
       const refresh = () => {
         const existing = this._refreshes.get(key)
         if (existing) return existing as Promise<T>
@@ -111,16 +120,28 @@ export class NotebookResourceLoader {
             'INSERT INTO NotebookResources VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET data=excluded.data, updatedAt=excluded.updatedAt',
             [key, JSON.stringify(data), Date.now()]
           )
+          this._retryAfter.delete(key)
           this._changed(key, false)
           return data
-        })().finally(() => this._refreshes.delete(key))
+        })()
+          .catch((error) => {
+            this._retryAfter.set(key, Date.now() + RETRY_INTERVAL_MS)
+            throw error
+          })
+          .finally(() => this._refreshes.delete(key))
         this._refreshes.set(key, task)
         return task
       }
       if (previous) {
-        void refresh().catch(() => {
-          if (!this._abort.signal.aborted) this._changed(key, true)
-        })
+        // The interval schedules synchronization; local data never expires.
+        if (
+          Date.now() - row.updatedAt >= SYNC_INTERVAL_MS &&
+          Date.now() >= (this._retryAfter.get(key) ?? 0)
+        ) {
+          void refresh().catch(() => {
+            if (!this._abort.signal.aborted) this._changed(key, true)
+          })
+        }
         return previous
       }
       return refresh()

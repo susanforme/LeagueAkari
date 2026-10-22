@@ -16,12 +16,15 @@ const rowsSchema = z.array(
   })
 )
 const base = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global'
+const SYNC_INTERVAL_MS = 86_400_000
+const RETRY_INTERVAL_MS = 60_000
 
 export class ResourceLoader {
   private readonly _requests = new Map<ResourceLocale, Promise<ResourceCatalog>>()
   private readonly _abort = new AbortController()
 
   private readonly _refreshes = new Map<ResourceLocale, Promise<ResourceCatalog>>()
+  private readonly _retryAfter = new Map<ResourceLocale, number>()
   constructor(
     private readonly _context: ChampionPoolContext,
     private readonly _changed: (locale: ResourceLocale, failed: boolean) => void = () => {}
@@ -43,13 +46,13 @@ export class ResourceLoader {
 
   private async _load(locale: ResourceLocale): Promise<ResourceCatalog> {
     const database = this._context.storage.dataSource
-    const [cached]: { catalog: string; updatedAt: number }[] = await database.query(
+    const [local]: { catalog: string; updatedAt: number }[] = await database.query(
       'SELECT catalog, updatedAt FROM PoolResources WHERE locale = ?',
       [locale]
     )
-    const previous = cached ? resourceCatalogSchema.parse(JSON.parse(cached.catalog)) : null
+    const previous = local ? resourceCatalogSchema.parse(JSON.parse(local.catalog)) : null
     if (previous) {
-      // Older caches include Jade variants (60xxx), which are not the current LoL roster.
+      // Older local catalogs include Jade variants (60xxx), which are not the current LoL roster.
       for (const id of Object.keys(previous.champions)) {
         if (Number(id) <= 0 || (Number(id) >= 60000 && Number(id) < 70000)) {
           delete previous.champions[id]
@@ -57,11 +60,14 @@ export class ResourceLoader {
         }
       }
     }
-    if (previous?.championSearch && Date.now() - cached.updatedAt < 86_400_000) return previous
     if (previous) {
-      void this._refresh(locale).catch(() => {
-        if (!this._abort.signal.aborted) this._changed(locale, true)
-      })
+      // The interval schedules synchronization; local data never expires.
+      const syncDue = !previous.championSearch || Date.now() - local.updatedAt >= SYNC_INTERVAL_MS
+      if (syncDue && Date.now() >= (this._retryAfter.get(locale) ?? 0)) {
+        void this._refresh(locale).catch(() => {
+          if (!this._abort.signal.aborted) this._changed(locale, true)
+        })
+      }
       return previous
     }
     return this._refresh(locale)
@@ -99,9 +105,15 @@ export class ResourceLoader {
         'INSERT INTO PoolResources VALUES (?, ?, ?) ON CONFLICT(locale) DO UPDATE SET catalog = excluded.catalog, updatedAt = excluded.updatedAt',
         [locale, JSON.stringify(catalog), Date.now()]
       )
+      this._retryAfter.delete(locale)
       this._changed(locale, false)
       return catalog
-    })().finally(() => this._refreshes.delete(locale))
+    })()
+      .catch((error) => {
+        this._retryAfter.set(locale, Date.now() + RETRY_INTERVAL_MS)
+        throw error
+      })
+      .finally(() => this._refreshes.delete(locale))
     this._refreshes.set(locale, request)
     return request
   }

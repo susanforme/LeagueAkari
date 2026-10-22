@@ -1,7 +1,7 @@
 pro:
   handbookWorkspace:
     entryActions: 'Entry actions'
-    cachedLimit: 'Only the most recent cached matches within the analysis limit are included.'
+    analysisLimit: 'Only the most recent local matches within the analysis limit are included.'
     addChampion: 'Add Champion'
     addDescription: 'Add a champion, then collect notes, combos, builds and practice plans.'
     back: 'Back to My Handbook'
@@ -145,7 +145,7 @@ pro:
     sampleGames: '{{count}} games'
     waitingOpponent: 'Waiting for publicly selected opponents'
     personalWinRate: 'My win rate'
-    personalDataNotice: 'Cached ranked solo/duo games for the selected account. Ratings come from your notes, not win rate.'
+    personalDataNotice: 'Locally saved ranked solo/duo games for the selected account. Ratings come from your notes, not win rate.'
     smallSample: 'Limited sample: treat this as a record, not a reliable matchup conclusion.'
     recordMatchup: 'Record matchup strategy'
     statsUnavailable: 'Match statistics unavailable. Your knowledge entries are still available.'
@@ -207,10 +207,10 @@ pro:
     sync: Sync matches
     cancel: Cancel sync
     syncCount: Matches to sync
-    syncProgress: 'Matches cached: {{processed}} / {{requested}}'
+    syncProgress: 'Matches saved: {{processed}} / {{requested}}'
     syncCancelled: Sync cancelled; completed pages retained
-    syncScope: Sync players on the connected client server; cached data is available offline
-    truncated: Only the latest 10,000 cached matches are analyzed; results do not cover the entire history
+    syncScope: Sync players on the connected client server; local data is available offline
+    truncated: Only the latest 10,000 local matches are analyzed; results do not cover the entire history
     usage: Most played
     games: Games
     winRate: Win rate
@@ -223,7 +223,7 @@ pro:
     zeroDenominator: Zero denominator
     unknownOutcome: Unknown outcome
     kdaRule: Mean of per-match KDA; zero-death matches excluded from this metric
-    empty: No cached matches match these filters
+    empty: No local matches match these filters
     matchHistory: Match history
     detailsUnavailable: Additional match data is unavailable. Check the client connection and data source, then retry.
     back: Back to champion pool
@@ -236,7 +236,7 @@ pro:
     differentServer: Only players on the connected client server can be synchronized
     waitingToken: Waiting for SGP authentication
     busy: Another sync is already running
-    syncFailed: Sync failed; cached data retained. Check the client connection and data source before retrying.
+    syncFailed: Sync failed; local data retained. Check the client connection and data source before retrying.
     invalidFilter: Check the patch and date range
     resourcesUnavailable: Champion resources unavailable. Connect the client or check your network and retry.
   handbook:
@@ -772,7 +772,7 @@ pro:
     review: Review
     empty: No matches
     tasks: Tasks
-    waiting: Waiting for client · Cached content available offline
+    waiting: Waiting for client · Local data available offline
     syncing: Synchronizing
     partial: Some tasks failed · Loaded content retained
     connected: Connected
@@ -797,7 +797,7 @@ pro:
     noPartners: No repeated teammates yet
     sharedGames: '{{count}} games together'
     viewShared: View shared matches
-    sampleLimit: 'Based on the latest {{count}} cached matches'
+    sampleLimit: 'Based on the latest {{count}} local matches'
     share: Share
     matchCard: Match result
     showIdentity: Include account name

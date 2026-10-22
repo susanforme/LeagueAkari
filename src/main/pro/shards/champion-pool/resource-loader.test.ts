@@ -5,7 +5,7 @@ import { initializeProDatabase } from '../storage/database-lifecycle'
 import type { ChampionPoolContext } from './context'
 import { ResourceLoader } from './resource-loader'
 
-describe.runIf(!!process.versions.electron)('champion catalog cache', () => {
+describe.runIf(!!process.versions.electron)('local champion catalog', () => {
   let database: DataSource
   let loader: ResourceLoader
   const fetchMock = vi.fn()
@@ -25,9 +25,10 @@ describe.runIf(!!process.versions.electron)('champion catalog cache', () => {
     await loader.dispose()
     await database.destroy()
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
-  it('deduplicates requests, caches localized names and retains expired data offline', async () => {
+  it('deduplicates requests, saves localized names and retains local data offline', async () => {
     fetchMock.mockImplementation(async (url: string) => ({
       ok: true,
       json: async () =>
@@ -65,6 +66,9 @@ describe.runIf(!!process.versions.electron)('champion catalog cache', () => {
     fetchMock.mockRejectedValue(new Error('offline'))
     expect(await loader.get('zh-CN')).toEqual(catalog)
     await vi.waitFor(() => expect(changed).toHaveBeenCalledWith('zh-CN', true))
+    expect(await loader.get('zh-CN')).toEqual(catalog)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60_001)
     fetchMock.mockImplementation(async () => ({
       ok: true,
       json: async () => [{ id: 103, name: '九尾妖狐', description: '阿狸', alias: 'Ahri' }]
@@ -74,7 +78,7 @@ describe.runIf(!!process.versions.electron)('champion catalog cache', () => {
     expect((await loader.get('zh-CN')).championSearch).toEqual({ 103: '九尾妖狐 阿狸 Ahri' })
   })
 
-  it('serves expired local data while a slow refresh is pending', async () => {
+  it('serves local data regardless of age while a slow synchronization is pending', async () => {
     const catalog = { champions: { 103: 'Ahri' }, championSearch: { 103: 'Ahri' }, queues: {} }
     await database.query('INSERT INTO PoolResources VALUES (?, ?, ?)', [
       'en',

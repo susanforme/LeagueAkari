@@ -4,11 +4,11 @@ import type { AkariLogger } from '@main/shards/logger-factory'
 import type { SettingFactoryMain } from '@main/shards/setting-factory'
 import type { SgpMain } from '@main/shards/sgp'
 import type { WindowManagerMain } from '@main/shards/window-manager'
-import { MAX_CACHED_ANALYSIS, type PlayerIdentity } from '@shared/pro/champion-pool'
+import { MAX_LOCAL_MATCHES_ANALYZED, type PlayerIdentity } from '@shared/pro/champion-pool'
 import {
-  type CachedGame,
   type ExperiencePreferences,
   type ExperienceStatus,
+  type LocalGame,
   type PlayReminder,
   type Scene,
   type SceneValues,
@@ -260,7 +260,7 @@ export class ExperienceController {
     })()
       .catch((error) => {
         if (isCurrent()) this.archiveError = true
-        this._context.logger.warn('Automatic archive incomplete; cached matches retained')
+        this._context.logger.warn('Automatic archive incomplete; local matches retained')
         throw error
       })
       .finally(() => {
@@ -394,10 +394,10 @@ export class ExperienceController {
   async social(player: PlayerIdentity): Promise<SocialSummary> {
     const rows: { projection: string; summary: string }[] = await this._database.query(
       "SELECT projection,summary FROM PoolMatches WHERE serverId=? AND puuid=? AND json_extract(projection, '$.queueId') IN (420, 440) ORDER BY startedAt DESC LIMIT ?",
-      [player.serverId, player.puuid, MAX_CACHED_ANALYSIS + 1]
+      [player.serverId, player.puuid, MAX_LOCAL_MATCHES_ANALYZED + 1]
     )
-    const games: CachedGame[] = rows
-      .slice(0, MAX_CACHED_ANALYSIS)
+    const games: LocalGame[] = rows
+      .slice(0, MAX_LOCAL_MATCHES_ANALYZED)
       .map((row) => ({ match: JSON.parse(row.projection), summary: JSON.parse(row.summary) }))
     const session = sessionSummary(games)
     const ranks: SocialSummary['ranks'] = []
@@ -435,7 +435,7 @@ export class ExperienceController {
       session,
       partners: partnerSummary(games, player.puuid),
       scanned: games.length,
-      truncated: rows.length > MAX_CACHED_ANALYSIS,
+      truncated: rows.length > MAX_LOCAL_MATCHES_ANALYZED,
       ranks
     }
   }

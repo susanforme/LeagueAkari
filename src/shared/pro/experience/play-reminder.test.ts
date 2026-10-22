@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import { normalizeMatch } from '../../../main/pro/shards/champion-pool/normalization'
 import { sgpSummary } from '../../../main/pro/shards/champion-pool/test-fixtures'
-import { type CachedGame, preferencesSchema, reminderSettingsSchema } from './index'
+import { type LocalGame, preferencesSchema, reminderSettingsSchema } from './index'
 import { playReminder } from './play-reminder'
 
 function game(
   id: number,
   start: number,
-  outcome: CachedGame['match']['outcome'] = 'loss'
-): CachedGame {
+  outcome: LocalGame['match']['outcome'] = 'loss'
+): LocalGame {
   const summary = sgpSummary(id)
   summary.data.json.gameCreation = start
   summary.data.json.gameDuration = 1800

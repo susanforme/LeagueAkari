@@ -20,8 +20,9 @@ describe.runIf(!!process.versions.electron)('notebook local resources', () => {
     await loader.dispose()
     await db.destroy()
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
-  it('returns expired data immediately and retains it when background refresh fails', async () => {
+  it('keeps local data usable across failed synchronization and throttles background retries', async () => {
     const local = { items: [], spells: [] }
     await db.query('INSERT INTO NotebookResources VALUES (?, ?, ?)', [
       'catalog:en',
@@ -38,7 +39,16 @@ describe.runIf(!!process.versions.electron)('notebook local resources', () => {
     expect(remote).toHaveBeenCalledTimes(2)
     reject(new Error('offline'))
     await vi.waitFor(() => expect(changed).toHaveBeenCalledWith('catalog:en', true))
+    expect(await loader.catalog('en')).toEqual(local)
+    expect(remote).toHaveBeenCalledTimes(2)
     const [row] = await db.query('SELECT data FROM NotebookResources WHERE key = ?', ['catalog:en'])
     expect(JSON.parse(row.data)).toEqual(local)
+    remote.mockResolvedValue({ ok: true, json: async () => [] })
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60_001)
+    expect(await loader.catalog('en')).toEqual(local)
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledWith('catalog:en', false))
+    expect(remote).toHaveBeenCalledTimes(4)
+    expect(await loader.catalog('en')).toEqual(local)
+    expect(remote).toHaveBeenCalledTimes(4)
   })
 })

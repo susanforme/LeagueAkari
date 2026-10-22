@@ -1,7 +1,7 @@
 import type { LcuOrSgpGameDetails, LcuOrSgpGameSummary } from '@shared/data-adapter/wrapper'
 import {
   CHAMPION_POOL_NAMESPACE,
-  MAX_CACHED_ANALYSIS,
+  MAX_LOCAL_MATCHES_ANALYZED,
   type PlayerIdentity,
   type PoolMatch,
   type PoolMatchPage,
@@ -80,7 +80,7 @@ export class ChampionPoolController {
     )
     const rows: { projection: string; summary: string }[] = await database.query(
       'SELECT projection, summary FROM PoolMatches WHERE serverId = ? AND puuid = ? ORDER BY startedAt DESC, gameId DESC LIMIT ?',
-      [...parameters, MAX_CACHED_ANALYSIS]
+      [...parameters, MAX_LOCAL_MATCHES_ANALYZED]
     )
     return aggregatePool(
       rows.map((r) => {
@@ -146,16 +146,30 @@ export class ChampionPoolController {
     return { items: rows.map((row) => JSON.parse(row.summary)), total }
   }
 
-  async details(player: PlayerIdentity, gameId: number): Promise<LcuOrSgpGameDetails | null> {
+  async details(
+    player: PlayerIdentity,
+    gameId: number,
+    refresh = false
+  ): Promise<LcuOrSgpGameDetails | null> {
     const summary = await this.match(player, gameId)
     if (!summary) return null
+    if (!refresh) {
+      const [saved]: { details: string }[] = await this._context.storage.dataSource.query(
+        `SELECT json_extract(report, '$.details') AS details FROM ReviewReports
+         WHERE serverId = ? AND puuid = ? AND gameId = ?
+         AND json_extract(report, '$.details.source') = ?
+         ORDER BY createdAt DESC, id DESC LIMIT 1`,
+        [player.serverId, player.puuid, gameId, summary.source]
+      )
+      if (saved) return JSON.parse(saved.details)
+    }
     const source = this._loader.source({
       ...player,
       name: '',
       count: 20,
       preferredSource: summary.source
     })
-    if (source !== summary.source) throw new Error('Cached source unavailable')
+    if (source !== summary.source) throw new Error('Saved match source unavailable')
     const options = {
       signal: AbortSignal.any([this._detailsAbort.signal, AbortSignal.timeout(30_000)])
     }
@@ -202,13 +216,13 @@ export class ChampionPoolController {
         if (signal.aborted) this._sync.cancelled = true
         else {
           this._sync.error = 'syncFailed'
-          this._context.logger.warn('Champion pool synchronization failed; cached pages retained')
+          this._context.logger.warn('Champion pool synchronization failed; local pages retained')
         }
       })
       .finally(() => {
         this._sync.running = false
         this._abort = null
-        this._context.ipc.sendEvent(CHAMPION_POOL_NAMESPACE, 'cache-changed')
+        this._context.ipc.sendEvent(CHAMPION_POOL_NAMESPACE, 'data-changed')
       })
     return this.status()
   }
@@ -268,14 +282,14 @@ export class ChampionPoolController {
           request.puuid
         ])
       : []
-    const cached = new Set(existingIds.map((row) => row.gameId))
+    const local = new Set(existingIds.map((row) => row.gameId))
     for (let offset = startOffset; offset < request.count; offset += 20) {
       this._retry = { request, offset, incremental }
       assertSession()
       const count = Math.min(20, request.count - offset)
-      const summaries = await this._loader.loadPage(request, source, offset, count, signal, cached)
+      const summaries = await this._loader.loadPage(request, source, offset, count, signal, local)
       assertSession()
-      const fresh = summaries.filter((s) => !seen.has(s.gameId) && !cached.has(s.gameId))
+      const fresh = summaries.filter((s) => !seen.has(s.gameId) && !local.has(s.gameId))
       if (!fresh.length) break
       const matches = fresh.map((summary) => ({
         summary,
@@ -287,7 +301,7 @@ export class ChampionPoolController {
             'SELECT projection, summary FROM PoolMatches WHERE serverId = ? AND puuid = ? AND gameId = ?',
             [request.serverId, request.puuid, projection.gameId]
           )
-          let cachedSummary = summary
+          let savedSummary = summary
           if (existing) {
             const previous: PoolMatch = JSON.parse(existing.projection)
             // A partial LCU retry must not erase metrics already obtained from a complete game.
@@ -309,7 +323,7 @@ export class ChampionPoolController {
             const oldSummary: LcuOrSgpGameSummary = JSON.parse(existing.summary)
             const size = (s: LcuOrSgpGameSummary) =>
               s.source === 'sgp' ? s.data.json.participants.length : s.data.participants.length
-            if (size(oldSummary) > size(summary)) cachedSummary = oldSummary
+            if (size(oldSummary) > size(summary)) savedSummary = oldSummary
           }
           await manager.query(
             `INSERT INTO PoolMatches (serverId, puuid, gameId, startedAt, projection, summary) VALUES (?, ?, ?, ?, ?, ?)
@@ -321,7 +335,7 @@ export class ChampionPoolController {
               projection.gameId,
               projection.startedAt,
               JSON.stringify(projection),
-              JSON.stringify(cachedSummary)
+              JSON.stringify(savedSummary)
             ]
           )
         }
@@ -334,7 +348,7 @@ export class ChampionPoolController {
       })
       matches.forEach(({ projection }) => seen.add(projection.gameId))
       this._sync.processed = offset + summaries.length
-      if (summaries.length < count || (incremental && summaries.some((s) => cached.has(s.gameId))))
+      if (summaries.length < count || (incremental && summaries.some((s) => local.has(s.gameId))))
         break
     }
     this._retry = null

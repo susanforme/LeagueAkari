@@ -92,7 +92,7 @@
               >＋ {{ t('recordMatchup') }}</NButton
             >
           </section>
-          <p v-if="truncated" class="hw-muted">{{ t('cachedLimit') }}</p>
+          <p v-if="truncated" class="hw-muted">{{ t('analysisLimit') }}</p>
           <div class="hw-grid">
             <section class="hw-panel hw-stack">
               <h3>{{ t('myStrategy') }}</h3>

@@ -37,7 +37,7 @@ vi.mock('@renderer-shared/shards/sgp/store', () => ({
 
 let scope: ReturnType<typeof effectScope>
 let pool: ReturnType<typeof useChampionPool>
-const result = (cachedMatches: number) => ({ cachedMatches, items: [] }) as unknown as PoolResult
+const result = (localMatches: number) => ({ localMatches, items: [] }) as unknown as PoolResult
 const flush = async () => {
   for (let i = 0; i < 8; i++) await nextTick()
 }
@@ -122,7 +122,7 @@ it('does not let a previous player request overwrite a newly selected player', a
   await vi.advanceTimersByTimeAsync(160)
   resolve(result(99))
   await pending
-  expect(pool.result.value?.cachedMatches).toBe(2)
+  expect(pool.result.value?.localMatches).toBe(2)
   expect(pool.player.value?.puuid).toBe('two')
 })
 
@@ -173,7 +173,7 @@ it('preserves filters across deactivation while stopping polling and ignoring pe
   await pending
   await vi.advanceTimersByTimeAsync(6000)
   expect(environment.api.status).toHaveBeenCalledTimes(calls)
-  expect(pool.result.value?.cachedMatches).not.toBe(99)
+  expect(pool.result.value?.localMatches).not.toBe(99)
   environment.activate()
   await flush()
   expect(pool.queues.value).toEqual([450])

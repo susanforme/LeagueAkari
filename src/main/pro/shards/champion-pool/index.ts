@@ -50,8 +50,8 @@ export class ChampionPoolMain implements IAkariShardInitDispose {
     return this._controller.match(player, gameId)
   }
 
-  details(player: PlayerIdentity, gameId: number) {
-    return this._controller.details(player, gameId)
+  details(player: PlayerIdentity, gameId: number, refresh = false) {
+    return this._controller.details(player, gameId, refresh)
   }
 
   archive(request: SyncRequest) {
