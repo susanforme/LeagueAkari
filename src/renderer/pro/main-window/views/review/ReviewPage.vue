@@ -1,6 +1,8 @@
 <template>
   <div class="review-page flex h-full min-w-0 flex-col">
+    <ReviewLibrary v-show="!isReport" :visible="!isReport" :champions="champions" />
     <div
+      v-if="isReport"
       class="flex flex-wrap items-center gap-3 border-b border-(--la-color-popover-border) px-6 py-3"
     >
       <NIcon :component="DocumentSearch24Regular" size="22" />
@@ -11,9 +13,9 @@
       }}</NButton>
       <RefreshButton v-if="report && !comparison" @click="refresh" />
     </div>
-    <NScrollbar class="min-h-0 flex-1">
+    <NScrollbar v-if="isReport" class="min-h-0 flex-1">
       <div class="flex flex-col gap-4 p-6">
-        <NSpin :show="loading && (isReport ? !report : !library)">
+        <NSpin :show="loading && !report">
           <template v-if="report">
             <ReviewFindings
               v-if="!comparison"
@@ -81,38 +83,6 @@
               </NTabs>
             </div>
           </template>
-          <template v-else-if="!isReport">
-            <NAlert type="info" class="mb-4">{{ t('libraryHelp') }}</NAlert>
-            <div class="mb-3 flex items-center justify-between gap-3">
-              <NButton size="small" :disabled="selected.length !== 2" @click="compareSelected">{{
-                t('compareSelected', { count: selected.length })
-              }}</NButton>
-              <NPagination v-model:page="page" :page-size="30" :item-count="library?.total ?? 0" />
-            </div>
-            <div class="flex flex-col gap-2">
-              <NCard v-for="item in library?.items" :key="item.id" size="small">
-                <div class="flex items-center gap-3">
-                  <NCheckbox
-                    :checked="selected.includes(item.id)"
-                    :disabled="selected.length === 2 && !selected.includes(item.id)"
-                    :aria-label="t('selectForCompare', { id: item.gameId })"
-                    @update:checked="toggle(item.id, $event)"
-                  />
-                  <ChampionIcon :champion-id="item.championId" class="size-9!" />
-                  <NButton text @click="router.push({ name: REVIEW_ROUTE, query: { id: item.id } })"
-                    >{{ resources.champions.name(item.championId) }} · {{ item.gameId }}</NButton
-                  >
-                  <span class="text-xs opacity-60"
-                    >{{ item.serverId }} · {{ new Date(item.startedAt).toLocaleString() }}</span
-                  >
-                  <span class="ml-auto text-xs opacity-60">{{
-                    t('savedAt', { time: new Date(item.createdAt).toLocaleString() })
-                  }}</span>
-                </div>
-              </NCard>
-              <NEmpty v-if="library && !library.total" :description="t('empty')" />
-            </div>
-          </template>
         </NSpin>
       </div>
     </NScrollbar>
@@ -124,30 +94,12 @@ import { useRefreshFeedback } from '../../../shared/composables/useRefreshFeedba
 import RefreshButton from '../../../shared/components/RefreshButton.vue'
 import MatchShare from '../../../shared/components/share-card/MatchShare.vue'
 import MatchCard from '@renderer-shared/components/match-card/MatchCard.vue'
-import ChampionIcon from '@renderer-shared/components/widgets/ChampionIcon.vue'
 import { useInstance } from '@renderer-shared/shards'
 import { useAppCommonStore } from '@renderer-shared/shards/app-common/store'
-import {
-  REVIEW_ROUTE,
-  reviewRequestSchema,
-  type ReviewListItem,
-  type ReviewReport
-} from '@shared/pro/review'
+import { REVIEW_ROUTE, reviewRequestSchema, type ReviewReport } from '@shared/pro/review'
 import { DocumentSearch24Regular } from '@vicons/fluent'
 import { useTranslation } from 'i18next-vue'
-import {
-  NAlert,
-  NButton,
-  NCard,
-  NCheckbox,
-  NEmpty,
-  NIcon,
-  NPagination,
-  NScrollbar,
-  NSpin,
-  NTabPane,
-  NTabs
-} from 'naive-ui'
+import { NAlert, NButton, NCard, NIcon, NScrollbar, NSpin, NTabPane, NTabs } from 'naive-ui'
 import { computed, nextTick, onActivated, onDeactivated, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ReviewRenderer } from '../../../shared/shards/review'
@@ -159,8 +111,7 @@ import PersonalBaseline from '../progress/PersonalBaseline.vue'
 import type { Insights } from '@shared/pro/progress'
 import type { ReviewFinding } from '@shared/pro/review/findings'
 import ReviewFindings from './ReviewFindings.vue'
-import { z } from 'zod'
-import { useWorkspaceState } from '../../../shared/composables/useWorkspaceState'
+import ReviewLibrary from './ReviewLibrary.vue'
 const { t } = useTranslation(undefined, { keyPrefix: 'pro.review' })
 const api = useInstance(ReviewRenderer)
 const app = useAppCommonStore()
@@ -168,12 +119,9 @@ const route = useRoute()
 const router = useRouter()
 const report = shallowRef<ReviewReport | null>(null)
 const comparison = shallowRef<ReviewReport | null>(null)
-const { resources } = useNotebookResources(
+const { champions } = useNotebookResources(
   computed(() => report.value?.analysis.metrics.championId ?? null)
 )
-const library = shallowRef<{ items: ReviewListItem[]; total: number } | null>(null)
-const page = ref(1)
-const selected = ref<string[]>([])
 const loading = ref(false)
 const error = ref(false)
 const focus = ref(0)
@@ -222,17 +170,6 @@ const incomparable = computed(() => {
       ))
   )
 })
-function toggle(id: string, checked: boolean) {
-  selected.value = checked
-    ? [...selected.value, id].slice(0, 2)
-    : selected.value.filter((value) => value !== id)
-}
-function compareSelected() {
-  void router.push({
-    name: REVIEW_ROUTE,
-    query: { id: selected.value[0], compare: selected.value[1] }
-  })
-}
 const isReport = computed(() => !!(route.query.id || route.query.gameId))
 let loadedContext = ''
 const contextKey = () =>
@@ -248,11 +185,6 @@ const contextKey = () =>
 const reportCache = useQueryCache(contextKey, report, () => null)
 useQueryCache(contextKey, comparison, () => null)
 useQueryCache(contextKey, baseline, () => null)
-useQueryCache(
-  () => String(page.value),
-  library,
-  () => null
-)
 async function load() {
   if (!active || route.name !== REVIEW_ROUTE) return
   const current = ++generation
@@ -292,9 +224,6 @@ async function load() {
             : 0
         }
       }
-    } else {
-      const next = await api.list(page.value)
-      if (current === generation) library.value = next
     }
   } catch {
     if (current === generation) error.value = true
@@ -325,7 +254,7 @@ async function refresh() {
     if (current === generation) loading.value = false
   }
 }
-watch([() => route.query, page], load)
+watch(() => route.query, load)
 onActivated(() => {
   active = true
   void load()
@@ -334,11 +263,6 @@ onDeactivated(() => {
   active = false
   generation++
 })
-useWorkspaceState(
-  'pro-review',
-  { page, tab },
-  z.object({ page: z.number().int().positive(), tab: z.enum(['events', 'details']) })
-)
 useRefreshFeedback(
   () => error.value,
   () => t('loadFailed')

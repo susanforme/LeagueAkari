@@ -1,8 +1,12 @@
 import {
+  REVIEW_PAGE_SIZE,
   REVIEW_VERSION,
-  type ReviewListItem,
+  type ReviewLibrary,
+  type ReviewListQuery,
+  type ReviewRemoveResult,
   type ReviewReport,
-  type ReviewRequest
+  type ReviewRequest,
+  reviewListSchema
 } from '@shared/pro/review'
 import { createHash, randomUUID } from 'node:crypto'
 import type { DataSource } from 'typeorm'
@@ -18,14 +22,86 @@ export class ReviewController {
     private readonly _pool: Pick<ChampionPoolMain, 'match' | 'details'>
   ) {}
 
-  async list(page: number): Promise<{ items: ReviewListItem[]; total: number }> {
+  async list(input: ReviewListQuery | number): Promise<ReviewLibrary> {
+    const query = typeof input === 'number' ? reviewListSchema.parse({ page: input }) : input
     const database = this._database()
-    const [{ total }] = await database.query('SELECT COUNT(*) AS total FROM ReviewReports')
-    const items = await database.query(
-      'SELECT id, serverId, puuid, gameId, championId, startedAt, createdAt FROM ReviewReports ORDER BY createdAt DESC, id LIMIT 30 OFFSET ?',
-      [(page - 1) * 30]
+    const conditions: string[] = []
+    const values: (number | string)[] = []
+    if (query.search) {
+      const champions = query.searchChampionIds
+      conditions.push(
+        `(instr(CAST(gameId AS TEXT), ?) > 0 OR instr(lower(serverId), ?) > 0${
+          champions.length ? ` OR championId IN (${champions.map(() => '?').join(',')})` : ''
+        })`
+      )
+      values.push(query.search.toLowerCase(), query.search.toLowerCase(), ...champions)
+    }
+    if (query.championId !== null) {
+      conditions.push('championId = ?')
+      values.push(query.championId)
+    }
+    if (query.queueId !== null) {
+      conditions.push("json_extract(report, '$.analysis.metrics.queueId') = ?")
+      values.push(query.queueId)
+    }
+    if (query.from !== null) {
+      conditions.push('startedAt >= ?')
+      values.push(query.from)
+    }
+    if (query.to !== null) {
+      conditions.push('startedAt < ?')
+      values.push(query.to)
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+    const order = {
+      matchNewest: 'startedAt DESC',
+      matchOldest: 'startedAt ASC',
+      savedNewest: 'createdAt DESC',
+      savedOldest: 'createdAt ASC'
+    }[query.sort]
+    const [{ total }] = await database.query(
+      `SELECT COUNT(*) AS total FROM ReviewReports ${where}`,
+      values
     )
-    return { items, total }
+    const rows = await database.query(
+      `SELECT id, serverId, puuid, gameId, championId, startedAt, createdAt,
+       json_extract(report, '$.summary') AS summary FROM ReviewReports ${where}
+       ORDER BY ${order}, id LIMIT ? OFFSET ?`,
+      [...values, REVIEW_PAGE_SIZE, (query.page - 1) * REVIEW_PAGE_SIZE]
+    )
+    const champions = await database.query(
+      'SELECT championId, COUNT(*) AS count FROM ReviewReports GROUP BY championId ORDER BY count DESC, championId'
+    )
+    const queues = await database.query(
+      "SELECT DISTINCT json_extract(report, '$.analysis.metrics.queueId') AS queueId FROM ReviewReports ORDER BY queueId"
+    )
+    return {
+      items: rows.map((row) => ({ ...row, summary: JSON.parse(row.summary) })),
+      total,
+      saved: champions.reduce((sum, item) => sum + item.count, 0),
+      champions,
+      queueIds: queues.map((item) => item.queueId)
+    }
+  }
+
+  async remove(id: string): Promise<ReviewRemoveResult> {
+    return this._database().transaction(async (manager) => {
+      // Keep evidence available for both current records and restorable notebook revisions.
+      for (const [table, column] of [
+        ['NotebookEntries', 'content'],
+        ['NotebookRevisions', 'snapshot'],
+        ['TrainingGoals', 'payload'],
+        ['ReviewBatches', 'payload']
+      ]) {
+        const references = await manager.query(
+          `SELECT 1 FROM ${table}, json_tree(${column}) WHERE json_tree.key = 'reportId' AND json_tree.value = ? LIMIT 1`,
+          [id]
+        )
+        if (references.length) return 'referenced'
+      }
+      await manager.query('DELETE FROM ReviewReports WHERE id = ?', [id])
+      return 'removed'
+    })
   }
 
   async get(id: string): Promise<ReviewReport> {

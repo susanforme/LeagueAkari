@@ -434,8 +434,46 @@ pro:
       compare: 对照补刀较好的一局
     title: 对局复盘
     open: 复盘此局
-    library: 报告列表
-    libraryHelp: 从英雄池的对局列表生成报告。报告保留当时的数据，保存后可离线查看；勾选两份报告可并排对比。
+    library: 复盘报告库
+    offline: '已保存在本地，可离线查看'
+    generate: '生成报告'
+    search: '搜索'
+    searchPlaceholder: '搜索英雄、对局编号或服务器'
+    queue: '队列'
+    allQueues: '全部队列'
+    champion: '英雄'
+    allChampions: '全部英雄'
+    dateRange: '比赛日期'
+    dateFrom: '开始日期'
+    dateTo: '结束日期'
+    sort: '排序'
+    matchNewest: '比赛时间：从新到旧'
+    matchOldest: '比赛时间：从旧到新'
+    savedNewest: '保存时间：从新到旧'
+    savedOldest: '保存时间：从旧到新'
+    savedReports: '已保存报告'
+    mostReviewed: '最常复盘'
+    selectTwo: '选择两份报告对比'
+    clearFilters: '清除筛选'
+    noResults: '没有符合条件的报告'
+    openReport: '打开报告'
+    moreActions: '对局 {{id}} 的更多操作'
+    compareReports: '对比报告'
+    selectionCount: '已选 {{count}} / 2'
+    clearSelection: '清空选择'
+    removeSelection: '移除对局 {{id}} 的选择'
+    deleteReport: '删除报告'
+    deleteConfirm: '删除 {{champion}} · #{{id}} 的这份报告？此操作无法撤销。'
+    reportReferenced: '这份报告仍被笔记或训练记录引用，暂不能删除。'
+    deleteFailed: '删除失败，请重试'
+    libraryFailed: '无法读取本地报告，请重试'
+    cancel: '取消'
+    player: '玩家'
+    chooseMatch: '选择一场已保存的对局'
+    previous: '上一页'
+    next: '下一页'
+    noLocalMatches: '暂无本地对局'
+    resultCount: '{{count}} 份报告'
     empty: 暂无复盘报告
     refresh: 重新获取时间线
     retry: 重试

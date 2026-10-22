@@ -439,8 +439,47 @@ pro:
       compare: Compare a match with better farm
     title: Match review
     open: Review match
-    library: Reports
-    libraryHelp: Generate reports from champion-pool matches. Saved reports work offline. Select two reports to compare them.
+    library: Report library
+    offline: 'Saved locally · Available offline'
+    generate: 'Generate report'
+    search: 'Search'
+    searchPlaceholder: 'Search champion, match ID or server'
+    queue: 'Queue'
+    allQueues: 'All queues'
+    champion: 'Champion'
+    allChampions: 'All champions'
+    dateRange: 'Match date'
+    dateFrom: 'From'
+    dateTo: 'To'
+    sort: 'Sort by'
+    matchNewest: 'Match: newest first'
+    matchOldest: 'Match: oldest first'
+    savedNewest: 'Saved: newest first'
+    savedOldest: 'Saved: oldest first'
+    savedReports: 'Saved reports'
+    mostReviewed: 'Most reviewed'
+    selectTwo: 'Select 2 reports to compare'
+    clearFilters: 'Clear filters'
+    noResults: 'No matching reports'
+    openReport: 'Open report'
+    moreActions: 'More actions for match {{id}}'
+    compareReports: 'Compare reports'
+    selectionCount: 'Selected {{count}} / 2'
+    clearSelection: 'Clear selection'
+    removeSelection: 'Remove match {{id}} from selection'
+    deleteReport: 'Delete report'
+    deleteConfirm: 'Delete this report for {{champion}} · #{{id}}? This cannot be undone.'
+    reportReferenced: 'This report is still referenced by notes or training records and cannot be deleted.'
+    deleteFailed: 'Could not delete the report. Please try again.'
+    libraryFailed: 'Could not read local reports. Please try again.'
+    cancel: 'Cancel'
+    player: 'Player'
+    chooseMatch: 'Choose a saved match'
+    previous: 'Previous'
+    next: 'Next'
+    noLocalMatches: 'No saved matches'
+    resultCount_one: '{{count}} report'
+    resultCount_other: '{{count}} reports'
     empty: No saved reports
     refresh: Fetch timeline again
     retry: Retry

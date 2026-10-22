@@ -13,7 +13,6 @@ export function registerReviewHandlers(ipc: AkariIpcMain, controller: ReviewCont
     controller.open(reviewRequestSchema.parse(query))
   )
   ipc.onCall(REVIEW_NAMESPACE, 'get', (_, id) => controller.get(reportIdSchema.parse(id)))
-  ipc.onCall(REVIEW_NAMESPACE, 'list', (_, query) =>
-    controller.list(reviewListSchema.parse(query).page)
-  )
+  ipc.onCall(REVIEW_NAMESPACE, 'remove', (_, id) => controller.remove(reportIdSchema.parse(id)))
+  ipc.onCall(REVIEW_NAMESPACE, 'list', (_, query) => controller.list(reviewListSchema.parse(query)))
 }

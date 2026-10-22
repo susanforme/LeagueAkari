@@ -13,9 +13,32 @@ export const reviewRequestSchema = playerSchema.extend({
 })
 export type ReviewRequest = z.infer<typeof reviewRequestSchema>
 export const reportIdSchema = z.string().uuid()
-export const reviewListSchema = z.object({
-  page: z.number().int().min(1).max(100_000).default(1)
-})
+export const REVIEW_PAGE_SIZE = 10
+export const reviewListSchema = z
+  .object({
+    page: z.number().int().min(1).max(100_000).default(1),
+    search: z.string().trim().max(100).default(''),
+    searchChampionIds: z.array(z.number().int().positive()).max(1000).default([]),
+    championId: z.number().int().positive().nullable().default(null),
+    queueId: z.number().int().nonnegative().nullable().default(null),
+    from: z.number().int().nonnegative().nullable().default(null),
+    to: z.number().int().nonnegative().nullable().default(null),
+    sort: z
+      .enum(['matchNewest', 'matchOldest', 'savedNewest', 'savedOldest'])
+      .default('matchNewest')
+  })
+  .refine((query) => query.from === null || query.to === null || query.from < query.to, {
+    message: 'Invalid date range'
+  })
+export type ReviewListQuery = z.infer<typeof reviewListSchema>
+export interface ReviewLibrary {
+  items: ReviewListItem[]
+  total: number
+  saved: number
+  champions: { championId: number; count: number }[]
+  queueIds: number[]
+}
+export type ReviewRemoveResult = 'removed' | 'referenced'
 export interface ReviewPoint {
   timestamp: number
   gold: number | null
@@ -69,6 +92,7 @@ export interface ReviewListItem {
   championId: number
   startedAt: number
   createdAt: number
+  summary: LcuOrSgpGameSummary
 }
 export const formatGameTime = (milliseconds: number) =>
   `${Math.floor(milliseconds / 60_000)}:${String(Math.floor(milliseconds / 1000) % 60).padStart(2, '0')}`

@@ -2,7 +2,9 @@ import { AkariIpcRenderer } from '@renderer-shared/shards/ipc'
 import { Dep, Shard } from '@shared/akari-shard'
 import {
   REVIEW_NAMESPACE,
-  type ReviewListItem,
+  type ReviewLibrary,
+  type ReviewListQuery,
+  type ReviewRemoveResult,
   type ReviewReport,
   type ReviewRequest
 } from '@shared/pro/review'
@@ -17,9 +19,14 @@ export class ReviewRenderer {
   get(id: string) {
     return this._ipc.call<ReviewReport>(REVIEW_NAMESPACE, 'get', id)
   }
-  list(page: number) {
-    return this._ipc.call<{ items: ReviewListItem[]; total: number }>(REVIEW_NAMESPACE, 'list', {
-      page
-    })
+  list(query: Partial<ReviewListQuery> | number) {
+    return this._ipc.call<ReviewLibrary>(
+      REVIEW_NAMESPACE,
+      'list',
+      typeof query === 'number' ? { page: query } : query
+    )
+  }
+  remove(id: string) {
+    return this._ipc.call<ReviewRemoveResult>(REVIEW_NAMESPACE, 'remove', id)
   }
 }
